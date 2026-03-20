@@ -1,6 +1,9 @@
+import "../styles/navbar.css";
+import Button from "./Button";
+
 export default function Navbar() {
   return (
-    <div className="navbar bg-base-200">
+    <div className="navbar max-w-7xl mx-auto px-2 bg-base-200">
       <div className="navbar-start">
         <svg
           width="36"
@@ -15,14 +18,15 @@ export default function Navbar() {
             fill="white"
           />
         </svg>
+        <h3 className="text-lg font-semibold m-0 ml-2">Urbis</h3>
       </div>
       <div className="navbar-center hidden lg:flex">
-        <ul className="menu menu-horizontal px-1">
+        <ul className="menu menu-horizontal font-medium px-1">
           <li>
             <a>Inicio</a>
           </li>
           <li>
-            <a>Mapa</a>
+            <a href="#Mapa">Mapa</a>
           </li>
           <li>
             <a>Objetivos</a>
@@ -33,7 +37,8 @@ export default function Navbar() {
         </ul>
       </div>
       <div className="navbar-end">
-        <a className="btn btn-primary">Button</a>
+        <Button variant_classes="btn-primary" text="Ingresar" />
+
         <div className="dropdown">
           <div tabIndex={0} role="button" className="btn btn-ghost lg:hidden">
             <svg
@@ -57,7 +62,7 @@ export default function Navbar() {
               <a>Inicio</a>
             </li>
             <li>
-              <a>Mapa</a>
+              <a href="#Mapa">Mapa</a>
             </li>
             <li>
               <a>Objetivos</a>
@@ -66,7 +71,7 @@ export default function Navbar() {
               <a>Contacto</a>
             </li>
             <li>
-              <a className="btn btn-primary">Button</a>
+              <Button variant_classes="btn-primary" text="Ingresar" />
             </li>
           </ul>
         </div>

@@ -9,6 +9,7 @@ body {
   margin: 0;
   padding: 0;
   background-color: #f8fafc;
+  font-family: "Inter", sans-serif;
 }
 
 #Hero-image {
@@ -21,4 +22,28 @@ body {
 
 .btn-primary {
   background-color: #2563eb;
+}
+
+.bg-footer {
+  /* color:  */
+  background-color: #020617;
+}
+
+.footer-title {
+  color: #ffffff;
+  opacity: 100%;
+  text-transform: none;
+}
+
+.footer-secondary-color {
+  color: #94a3b8;
+}
+
+.footer-link {
+  text-decoration: none;
+  transition: text-decoration 0.5s ease;
+}
+
+.footer-link:hover {
+  text-decoration: underline;
 }
