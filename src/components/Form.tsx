@@ -1,30 +1,49 @@
-export default function Form() {
+import Button from "./Button";
+import Input from "./Input";
+import { type LucideIcon } from "lucide-react";
+
+interface Field {
+  icon: React.ElementType;
+  label: string;
+  placeholder: string;
+}
+
+interface FormProps {
+  classes?: string;
+  fields: Field[];
+  submitIcon?: LucideIcon;
+}
+export default function Form({ classes = "", fields, submitIcon }: FormProps) {
   return (
-    <div className="hero bg-base-200 min-h-screen">
-      <div className="hero-content flex-col lg:flex-row-reverse">
-        <div className="text-center lg:text-left">
-          <h1 className="text-5xl font-bold">Login now!</h1>
-          <p className="py-6">
-            Provident cupiditate voluptatem et in. Quaerat fugiat ut assumenda
-            excepturi exercitationem quasi. In deleniti eaque aut repudiandae et
-            a id nisi.
-          </p>
-        </div>
-        <div className="card bg-base-100 w-full max-w-sm shrink-0 shadow-2xl">
-          <div className="card-body">
-            <fieldset className="fieldset">
-              <label className="label">Email</label>
-              <input type="email" className="input" placeholder="Email" />
-              <label className="label">Password</label>
-              <input type="password" className="input" placeholder="Password" />
-              <div>
-                <a className="link link-hover">Forgot password?</a>
-              </div>
-              <button className="btn btn-neutral mt-4">Login</button>
-            </fieldset>
+    <div className={`border border-[#E2E8F0] rounded-xl p-8 ${classes}`}>
+      <div className="flex flex-col gap-4">
+        {fields.map(({ icon: Icon, label, placeholder }) => (
+          <div key={label}>
+            <label className="label mb-1">
+              <Icon color="#2563EB" size={16} />
+              <span className="label-text font-medium">{label}</span>
+            </label>
+            {label === "Mensaje" ? (
+              <textarea
+                className="textarea w-full resize-none"
+                placeholder={placeholder}
+                rows={4}
+              />
+            ) : (
+              <Input
+                typeInput="text"
+                placeholder={placeholder}
+                classes="w-full"
+              />
+            )}
           </div>
-        </div>
+        ))}
       </div>
+      <Button
+        text="Enviar mensaje"
+        variant_classes="btn-primary mt-6 w-[219px] h-[56px]"
+        icon={submitIcon}
+      />
     </div>
   );
 }
