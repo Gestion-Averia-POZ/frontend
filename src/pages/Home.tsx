@@ -3,8 +3,9 @@ import Card from "../components/Card";
 import Footer from "../components/Footer";
 import Form from "../components/Form";
 import NavBar from "../components/NavBar";
+import { Link } from "react-router-dom";
+import { useEffect } from "react";
 // Iconos de lucide-react
-
 import {
   ChartNoAxesCombined,
   Check,
@@ -22,6 +23,19 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.replace("#", ""); // "Objetivos"
+      const el = document.getElementById(id);
+      if (el) {
+        // Pequeño delay para asegurar que el DOM ya renderizó
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      }
+    }
+  }, [location.hash]);
+
   return (
     <>
       <NavBar />
@@ -45,16 +59,21 @@ export default function Home() {
                 tiempo real para una ciudad más inteligente
               </p>
               <div className="flex justify-center">
-                <Button
-                  variant_classes="btn-primary mr-8  lg:btn-lg xl:btn-xl"
-                  text="Comenzar Ahora"
-                  icon={Send}
-                />
-                <Button
-                  variant_classes="bg-white/10 backdrop-blur-md border-white/60 text-white font-bold  lg:btn-lg xl:btn-xl"
-                  text="Ver Estadísticas"
-                  icon={ChartColumnIncreasing}
-                />
+                <Link to="/login">
+                  <Button
+                    variant_classes="btn-primary mr-8  lg:btn-lg xl:btn-xl"
+                    text="Comenzar Ahora"
+                    icon={Send}
+                  />
+                </Link>
+
+                <Link to="/metrics">
+                  <Button
+                    variant_classes="bg-white/10 backdrop-blur-md border-white/60 text-white font-bold  lg:btn-lg xl:btn-xl"
+                    text="Ver Estadísticas"
+                    icon={ChartColumnIncreasing}
+                  />
+                </Link>
               </div>
             </div>
           </div>
@@ -179,7 +198,7 @@ mantenimiento preventivo del servicio."
         </div>
       </section>
 
-      <section id="Contáctanos" className="max-w-7xl mx-auto px-2 mt-30">
+      <section id="Contactanos" className="max-w-7xl mx-auto px-2 mt-30">
         <div className="text-center">
           <h2 className="text-4xl font-bold">Contáctanos</h2>
           <small className="font-normal text-lg mt-4 text-[#475569]">
@@ -188,6 +207,7 @@ mantenimiento preventivo del servicio."
         </div>
         <div className="flex justify-center">
           <Form
+            textButton="Enviar mensaje"
             submitIcon={Send}
             fields={[
               { icon: Mail, label: "Correo", placeholder: "tu@correo.com" },

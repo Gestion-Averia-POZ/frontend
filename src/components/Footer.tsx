@@ -37,7 +37,7 @@ export default function Footer() {
           <a href="#Objetivos" className="link  footer-link">
             Objetivos
           </a>
-          <a href="#Contáctanos" className="link  footer-link">
+          <a href="#Contactanos" className="link  footer-link">
             Contacto
           </a>
         </nav>
@@ -54,7 +54,6 @@ export default function Footer() {
           <div>
             <nav>
               <a className="link footer-link mr-6">Política de Privacidad</a>
-              <a className="link footer-link">Términos y Condiciones</a>
             </nav>
           </div>
         </div>

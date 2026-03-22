@@ -1,14 +1,32 @@
 import { CircleArrowRight, DoorOpen } from "lucide-react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import "../styles/navbar.css";
 import Button from "./Button";
+import Logo from "./Logo";
 
 export default function Navbar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isHome = location.pathname === "/";
+
+  const handleNavClick = (sectionId: string) => {
+    if (isHome) {
+      // Ya estamos en Home, solo scrollea
+      document
+        .getElementById(sectionId)
+        ?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      // Navega a Home y luego hace scroll (con el hash en la URL)
+      navigate(`/#${sectionId}`);
+    }
+  };
+
   return (
     <nav className="fixed w-full text-white bg-[#0c111c]/70 backdrop-blur-md border-b border-white/10 z-50">
-      {" "}
       <div className="navbar max-w-7xl mx-auto px-2">
         <div className="navbar-start">
-          <svg
+          <Logo classes="flex items-end gap-2 text-white" />
+          {/* <svg
             width="36"
             height="36"
             viewBox="0 0 36 36"
@@ -21,31 +39,41 @@ export default function Navbar() {
               fill="white"
             />
           </svg>
-          <h3 className="text-lg font-semibold m-0 ml-2">Urbis</h3>
+          <h3 className="text-lg font-semibold m-0 ml-2">Urbis</h3> */}
         </div>
         <div className="navbar-center hidden lg:flex">
           <ul className="menu menu-horizontal font-medium px-1">
             <li>
-              <a href="#Inicio">Inicio</a>
+              <button onClick={() => handleNavClick("Inicio")}>Inicio</button>
             </li>
             <li>
-              <a href="#Mapa">Mapa</a>
+              <button onClick={() => handleNavClick("Mapa")}>Mapa</button>
             </li>
             <li>
-              <a href="#Objetivos">Objetivos</a>
+              <button onClick={() => handleNavClick("Objetivos")}>
+                Objetivos
+              </button>
             </li>
             <li>
-              <a href="#Contáctanos">Contacto</a>
+              <button onClick={() => handleNavClick("Contactanos")}>
+                Contacto
+              </button>
+            </li>
+            <li>
+              <Link to="/privacy">
+                <button>Privacidad</button>
+              </Link>
             </li>
           </ul>
         </div>
         <div className="navbar-end">
-          <Button
-            variant_classes="btn-primary"
-            text="Ingresar"
-            icon={CircleArrowRight}
-          />
-
+          <Link to="/login">
+            <Button
+              variant_classes="btn-primary"
+              text="Ingresar"
+              icon={CircleArrowRight}
+            />
+          </Link>
           <div className="dropdown">
             <div tabIndex={0} role="button" className="btn btn-ghost lg:hidden">
               <svg
@@ -75,8 +103,11 @@ export default function Navbar() {
                 <a href="#Objetivos">Objetivos</a>
               </li>
               <li>
-                <a href="#Contáctanos">Contacto</a>
+                <a href="#Contactanos">Contacto</a>
               </li>
+              <Link to="/privacy">
+                <button>Privacidad</button>
+              </Link>
               <li>
                 <Button
                   variant_classes="btn-primary"
