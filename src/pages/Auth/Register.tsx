@@ -1,22 +1,20 @@
-import Form from "../../components/Form";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Lock, Mail, Send } from "lucide-react";
-import Logo from "../../components/Logo";
+import { Form, Logo } from "../../components/ui";
+import { ROUTES } from "../../constants";
 
 export default function Register() {
   return (
     <div className="min-h-screen bg-[#F1F5F9] flex items-center justify-center px-4 p-20">
       <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-md">
-        {/* Logo */}
         <div className="flex items-center justify-between  gap-2 mb-8">
           <Logo classes="flex items-end gap-2" />
 
-          <Link to="/login">
+          <Link to={ROUTES.LOGIN}>
             <ArrowLeft />
           </Link>
         </div>
 
-        {/* Encabezado */}
         <h1 className="text-3xl font-bold text-[#0F172A]  mb-2">
           Crear cuenta
         </h1>
@@ -69,13 +67,13 @@ export default function Register() {
         <div className="text-center mt-4 text-sm">
           <span className="text-[#64748B]">¿Ya tienes una cuenta?</span>
           <span className="text-[#2563EB]">
-            <Link to="/login"> Inicia sesión aquí</Link>
+            <Link to={ROUTES.LOGIN}> Inicia sesión aquí</Link>
           </span>
         </div>
 
         <div className="divider my-4" />
 
-        <Link to="/privacy" className="hover:underline">
+        <Link to={ROUTES.PRIVACY} className="hover:underline">
           <span className="text-xs text-[#64748B]">
             Consulte nuestros Términos de Servicio y Política de Privacidad.
           </span>

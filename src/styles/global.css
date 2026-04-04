@@ -5,6 +5,14 @@
     dark --prefersdark;
 }
 
+/* =====================
+   Base
+   ===================== */
+html {
+  scroll-padding-top: 6rem;
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -12,20 +20,40 @@ body {
   font-family: "Inter", sans-serif;
 }
 
+/* =====================
+   Hero
+   ===================== */
 #Hero-image {
   box-sizing: border-box;
-  background-image: url("./assets/images/Home-CD-Guayana.webp");
+  background-image: url("../assets/images/Home-CD-Guayana.webp");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
+/* =====================
+   Navbar
+   ===================== */
+.navbar-start {
+  margin-left: 28px;
+  align-items: end;
+}
+
+.navbar-end {
+  margin-right: 28px;
+}
+
+/* =====================
+   Buttons
+   ===================== */
 .btn-primary {
   background-color: #2563eb;
 }
 
+/* =====================
+   Footer
+   ===================== */
 .bg-footer {
-  /* color:  */
   background-color: #020617;
 }
 

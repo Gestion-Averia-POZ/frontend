@@ -1,4 +1,5 @@
 import { type LucideIcon } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import Button from "./Button";
 import Input from "./Input";
 
@@ -7,6 +8,9 @@ interface Field {
   label: string;
   placeholder: string;
   type?: string;
+  // Props opcionales para inputs controlados
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
 interface FormProps {
@@ -17,6 +21,10 @@ interface FormProps {
   gridFields?: number;
   fields: Field[];
   submitIcon?: LucideIcon;
+  // Callback que se ejecuta al hacer submit (opcional)
+  onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
+  // Mensaje de error a mostrar sobre el botón (opcional)
+  error?: string;
 }
 
 export default function Form({
@@ -27,12 +35,21 @@ export default function Form({
   submitClasses = "w-[219px] h-[56px]",
   noBorder = false,
   gridFields,
+  onSubmit,
+  error,
 }: FormProps) {
   const containerClasses = noBorder
     ? classes
     : `border border-[#E2E8F0] rounded-xl p-8 ${classes}`;
 
-  const renderField = ({ icon: Icon, label, placeholder, type = "text" }: Field) => (
+  const renderField = ({
+    icon: Icon,
+    label,
+    placeholder,
+    type = "text",
+    value,
+    onChange,
+  }: Field) => (
     <div key={label}>
       <label className="label mb-1">
         {Icon && <Icon color="#2563EB" size={16} />}
@@ -50,6 +67,8 @@ export default function Form({
           typeInput={type}
           placeholder={placeholder}
           classes="w-full"
+          value={value}
+          onChange={onChange}
         />
       )}
     </div>
@@ -59,7 +78,10 @@ export default function Form({
   const stackSection = gridFields ? fields.slice(gridFields) : fields;
 
   return (
-    <div className={containerClasses}>
+    <form
+      className={containerClasses}
+      onSubmit={onSubmit}
+    >
       <div className="flex flex-col gap-4">
         {gridSection.length > 0 && (
           <div className="grid grid-cols-2 gap-4">
@@ -69,11 +91,19 @@ export default function Form({
         {stackSection.map(renderField)}
       </div>
 
+      {/* Mensaje de error — solo se muestra si se pasa la prop error */}
+      {error && (
+        <div className="flex items-center gap-2 text-red-500 text-sm mt-4">
+          <AlertCircle size={16} />
+          <span>{error}</span>
+        </div>
+      )}
+
       <Button
         text={textButton}
         variant_classes={`btn-primary mt-6 ${submitClasses}`}
         icon={submitIcon}
       />
-    </div>
+    </form>
   );
 }

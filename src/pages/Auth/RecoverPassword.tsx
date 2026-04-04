@@ -1,22 +1,20 @@
-import Form from "../../components/Form";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Mail, Send } from "lucide-react";
-import Logo from "../../components/Logo";
+import { Form, Logo } from "../../components/ui";
+import { ROUTES } from "../../constants";
 
 export default function RecoverPassword() {
   return (
     <div className="min-h-screen bg-[#F1F5F9] flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-md">
-        {/* Logo */}
         <div className="flex items-center justify-between  gap-2 mb-8">
           <Logo classes="flex items-end gap-2" />
 
-          <Link to="/login">
+          <Link to={ROUTES.LOGIN}>
             <ArrowLeft />
           </Link>
         </div>
 
-        {/* Encabezado */}
         <h1 className="text-3xl font-bold text-[#0F172A]  mb-2">
           Recuperar Contraseña
         </h1>

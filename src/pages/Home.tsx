@@ -1,11 +1,5 @@
-import Button from "../components/Button";
-import Card from "../components/Card";
-import Footer from "../components/Footer";
-import Form from "../components/Form";
-import NavBar from "../components/NavBar";
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
-// Iconos de lucide-react
 import {
   ChartNoAxesCombined,
   Check,
@@ -21,14 +15,17 @@ import {
   MessageSquareMore,
   ChartColumnIncreasing,
 } from "lucide-react";
+import { Button, Card, Form } from "../components/ui";
+import { Map } from "../components/layout";
+import { ROUTES } from "../constants";
+import { Zap, Droplet, Trash2 } from "lucide-react";
 
 export default function Home() {
   useEffect(() => {
     if (location.hash) {
-      const id = location.hash.replace("#", ""); // "Objetivos"
+      const id = location.hash.replace("#", "");
       const el = document.getElementById(id);
       if (el) {
-        // Pequeño delay para asegurar que el DOM ya renderizó
         setTimeout(() => {
           el.scrollIntoView({ behavior: "smooth" });
         }, 100);
@@ -38,7 +35,6 @@ export default function Home() {
 
   return (
     <>
-      <NavBar />
       <section id="Inicio">
         <div
           className="hero min-h-screen"
@@ -46,8 +42,6 @@ export default function Home() {
             backgroundImage: "url(/src/assets/images/Home-CD-Guayana.webp)",
           }}
         >
-          {/* Hero section */}
-
           <div className="hero-overlay"></div>
           <div className="hero-content mt-15 text-neutral-content text-center">
             <div className="max-w-2xl">
@@ -59,7 +53,7 @@ export default function Home() {
                 tiempo real para una ciudad más inteligente
               </p>
               <div className="flex justify-center">
-                <Link to="/login">
+                <Link to={ROUTES.LOGIN}>
                   <Button
                     variant_classes="btn-primary mr-8  lg:btn-lg xl:btn-xl"
                     text="Comenzar Ahora"
@@ -67,7 +61,7 @@ export default function Home() {
                   />
                 </Link>
 
-                <Link to="/metrics">
+                <Link to={ROUTES.METRICS}>
                   <Button
                     variant_classes="bg-white/10 backdrop-blur-md border-white/60 text-white font-bold  lg:btn-lg xl:btn-xl"
                     text="Ver Estadísticas"
@@ -82,24 +76,37 @@ export default function Home() {
 
       <section id="Mapa" className="max-w-7xl mx-auto px-2 mt-25">
         <div>
-          <h2 className="text-4xl font-bold">
-            Mapa de Incidencias en Tiempo Real
-          </h2>
+          <h2 className="text-4xl font-bold">Mapa de Incidencias</h2>
           <h3 className="font-normal mt-4">
             Monitoreo activo de la red de servicios básicos urbanos
           </h3>
         </div>
 
-        {/* Aqui deberia ir el componente Mapa */}
-        <div className="flex gap-x-[40px]">
-          <div className="bg-blue-500 h-[480px] w-[904px] text-white p-4 mt-12"></div>
-          <div className="mt-12 w-[360px]">
-            {/* Define un ancho explícito aquí */}
-            <div className="bg-[#E2E8F0] w-full mb-4 p-4">Leyenda 1</div>{" "}
-            {/* Añade márgenes y padding */}
-            <div className="bg-[#E2E8F0] w-full mb-4 p-4">Leyenda 2</div>
-            <div className="bg-[#E2E8F0] w-full p-4">Leyenda 3</div>
-          </div>
+        {/* Mapa a ancho completo */}
+        <div className="h-[480px] w-full mt-12">
+          <Map />
+        </div>
+
+        {/* Cards de resumen por servicio — 3 columnas debajo del mapa */}
+        <div className="grid grid-cols-3 gap-6 mt-8">
+          <Card
+            title="Electricidad"
+            description="128 reportes activos · 43 en proceso · 85 resueltos esta semana"
+            icon={Zap}
+            extraClasses="bg-amber-50"
+          />
+          <Card
+            title="Agua"
+            description="97 reportes activos · 31 en proceso · 66 resueltos esta semana"
+            icon={Droplet}
+            extraClasses="bg-blue-50"
+          />
+          <Card
+            title="Aseo"
+            description="54 reportes activos · 18 en proceso · 36 resueltos esta semana"
+            icon={Trash2}
+            extraClasses="bg-green-50"
+          />
         </div>
       </section>
 
@@ -112,8 +119,6 @@ export default function Home() {
               mediante la tecnología y la participación ciudadana.
             </p>
           </div>
-
-          {/* Aqui van las cards */}
 
           <div className="flex justify-center gap-x-10 mt-15">
             <Card
@@ -226,7 +231,6 @@ mantenimiento preventivo del servicio."
           />
         </div>
       </section>
-      <Footer />
     </>
   );
 }
