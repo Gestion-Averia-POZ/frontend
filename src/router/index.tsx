@@ -27,6 +27,7 @@ const RecoverPassword = lazy(() => import("../pages/auth/RecoverPassword"));
 const AdminDashboard = lazy(
   () => import("../pages/type-users/admin/AdminDashboard"),
 );
+const Reportes = lazy(() => import("../pages/Reportes"));
 
 // ─────────────────────────────────────────────
 // FALLBACK DE CARGA
@@ -90,6 +91,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       { path: "/dashboard/admin", element: <AdminDashboard /> },
+      { path: ROUTES.REPORTES, element: <Reportes /> },
       // { path: "/dashboard/supervisor", element: <SupervisorDashboard /> },
       // { path: "/dashboard/worker",     element: <WorkerDashboard /> },
       // { path: "/dashboard/citizen",    element: <CitizenDashboard /> },

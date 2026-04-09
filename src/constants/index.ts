@@ -5,6 +5,7 @@ export const ROUTES = {
   LOGIN: "/login",
   REGISTER: "/register",
   RECOVER_PASSWORD: "/recover-password",
+  REPORTES: "/reportes",
 } as const;
 
 export const APP_NAME = "Urbis";

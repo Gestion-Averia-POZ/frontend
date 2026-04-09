@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Bell,
   ClipboardList,
@@ -17,10 +17,11 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { ROUTES } from "../../constants";
+import { ROUTES, DASHBOARD_ROUTES } from "../../constants";
 
 const TEXT = "#94A3B8";
 const BG = "#25244E";
+const ACTIVE_COLOR = "#FFFFFF";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -47,6 +48,8 @@ function NavItem({
 }: NavItemProps) {
   const itemColor = color ?? TEXT;
 
+  const activeColor = isActive ? ACTIVE_COLOR : itemColor;
+
   return (
     <li>
       <button
@@ -54,13 +57,14 @@ function NavItem({
         title={collapsed ? label : undefined}
         className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/10"
         style={{
-          color: itemColor,
+          color: activeColor,
+          cursor: "pointer",
           paddingLeft: indent && !collapsed ? "2.5rem" : undefined,
-          backgroundColor: isActive ? "rgba(255,255,255,0.08)" : undefined,
+          backgroundColor: isActive ? "#2D5BFF" : undefined,
           justifyContent: collapsed ? "center" : undefined,
         }}
       >
-        <span className="shrink-0" style={{ color: itemColor }}>
+        <span className="shrink-0" style={{ color: activeColor }}>
           {icon}
         </span>
 
@@ -76,7 +80,10 @@ function NavItem({
         >
           <span className="flex-1 text-left whitespace-nowrap">{label}</span>
           {badge && (
-            <span className="text-xs font-medium ml-auto" style={{ color: TEXT }}>
+            <span
+              className="text-xs font-medium ml-auto"
+              style={{ color: TEXT }}
+            >
               +{badge}
             </span>
           )}
@@ -90,8 +97,10 @@ function NavItem({
 export default function Sidebar() {
   const [usuariosOpen, setUsuariosOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const dashboardRoute = user ? DASHBOARD_ROUTES[user.role] : "/dashboard";
 
   function handleLogout() {
     logout();
@@ -111,7 +120,10 @@ export default function Sidebar() {
       }}
     >
       {/* Header — posicionamiento absoluto para evitar que el botón afecte el layout del logo */}
-      <div className="relative flex items-center px-2 mb-5" style={{ height: "2.25rem" }}>
+      <div
+        className="relative flex items-center px-2 mb-5"
+        style={{ height: "2.25rem" }}
+      >
         {/* Logo: se desplaza de izquierda a centro con animación */}
         <button
           onClick={collapsed ? () => setCollapsed(false) : undefined}
@@ -120,7 +132,8 @@ export default function Sidebar() {
           style={{
             left: collapsed ? "50%" : "0.5rem",
             transform: collapsed ? "translateX(-50%)" : "none",
-            transition: "left 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1)",
+            transition:
+              "left 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1)",
             cursor: collapsed ? "pointer" : "default",
           }}
         >
@@ -182,7 +195,10 @@ export default function Sidebar() {
           transition: "max-height 0.25s ease, opacity 0.2s ease",
         }}
       >
-        <p className="text-xs px-3 mb-1.5 font-medium whitespace-nowrap" style={{ color: TEXT }}>
+        <p
+          className="text-xs px-3 mb-1.5 font-medium whitespace-nowrap"
+          style={{ color: TEXT }}
+        >
           Menú
         </p>
       </div>
@@ -192,13 +208,16 @@ export default function Sidebar() {
           icon={<LayoutDashboard size={18} />}
           label="Dashboard"
           collapsed={collapsed}
+          isActive={pathname.startsWith("/dashboard")}
+          onClick={() => navigate(dashboardRoute)}
         />
         <NavItem
           icon={<FileBarChart2 size={18} />}
           label="Reportes"
           collapsed={collapsed}
+          isActive={pathname === ROUTES.REPORTES}
+          onClick={() => navigate(ROUTES.REPORTES)}
         />
-
         {/* Usuarios con submenu */}
         <NavItem
           icon={<Users size={18} />}

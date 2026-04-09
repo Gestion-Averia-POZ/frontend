@@ -51,7 +51,7 @@ export default function Card({
   }
 
   return (
-    <div className={`card bg-base-100 card-lg shadow-sm ${extraClasses}`}>
+    <div className={`card card-lg shadow-sm ${extraClasses}`}>
       <div className="card-body">
         {Icon && (
           <div className="w-fit p-2 rounded-md bg-[#2563EB]/10">

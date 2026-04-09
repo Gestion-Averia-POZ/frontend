@@ -1,4 +1,9 @@
+import { useState } from "react";
 import { type LucideIcon } from "lucide-react";
+import Pagination from "./Pagination";
+import ListFilter, { type FilterConfig, type FilterState } from "./ListFilter";
+
+export type { FilterConfig } from "./ListFilter";
 
 interface Action<T> {
   label: string;
@@ -9,70 +14,130 @@ interface Action<T> {
 interface Column<T> {
   key: keyof T;
   header: string;
+  render?: (row: T) => React.ReactNode;
 }
 
 interface ListProps<T extends { id: number | string }> {
   columns: Column<T>[];
   data: T[];
   actions?: Action<T>[];
+  itemsPerPage?: number;
+  filters?: FilterConfig<T>[];
+  renderRowId?: (id: number | string) => React.ReactNode;
 }
 
 export default function List<T extends { id: number | string }>({
   columns,
   data,
   actions,
+  itemsPerPage = 10,
+  filters,
+  renderRowId,
 }: ListProps<T>) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterState, setFilterState] = useState<FilterState>({
+    checkbox: {},
+    text: {},
+  });
+
+  const filteredData = data.filter((row) => {
+    for (const [field, values] of Object.entries(filterState.checkbox)) {
+      if (values.length > 0 && !values.includes(String(row[field as keyof T]))) {
+        return false;
+      }
+    }
+    for (const [field, value] of Object.entries(filterState.text)) {
+      if (
+        value &&
+        !String(row[field as keyof T]).toLowerCase().includes(value.toLowerCase())
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  function handleFilterChange(state: FilterState) {
+    setFilterState(state);
+    setCurrentPage(1);
+  }
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const start = (currentPage - 1) * itemsPerPage;
+  const pageData = filteredData.slice(start, start + itemsPerPage);
+
+  const thClass = "px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400";
+
   return (
-    <div className="w-full rounded-xl border border-gray-200 overflow-hidden bg-white">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="px-6 py-3 text-left font-medium text-gray-500">
-              id
-            </th>
-            {columns.map((col) => (
-              <th
-                key={String(col.key)}
-                className="px-6 py-3 text-left font-medium text-gray-500"
-              >
-                {col.header}
-              </th>
-            ))}
-            {actions && actions.length > 0 && <th className="px-6 py-3" />}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row) => (
-            <tr key={row.id} className="border-b border-gray-100 last:border-0">
-              <td className="px-6 py-4 text-gray-700">{row.id}</td>
+    <div className="flex flex-col gap-4">
+      {filters && filters.length > 0 && (
+        <ListFilter filters={filters} data={data} onChange={handleFilterChange} />
+      )}
+
+      <div className="w-full rounded-xl border border-gray-200 overflow-hidden bg-white">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50/50">
+              <th className={thClass}>ID</th>
               {columns.map((col) => (
-                <td
-                  key={String(col.key)}
-                  className="px-6 py-4 text-gray-700"
-                >
-                  {String(row[col.key])}
-                </td>
+                <th key={String(col.key)} className={thClass}>
+                  {col.header}
+                </th>
               ))}
-              {actions && actions.length > 0 && (
-                <td className="px-6 py-4 text-right">
-                  <div className="flex justify-end gap-2">
-                    {actions.map((action) => (
-                      <button
-                        key={action.label}
-                        onClick={() => action.onClick(row)}
-                        className="btn btn-primary btn-sm"
-                      >
-                        {action.icon && <action.icon size={14} />}
-                        {action.label}
-                      </button>
-                    ))}
-                  </div>
-                </td>
-              )}
+              {actions && actions.length > 0 && <th className={thClass} />}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pageData.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length + 2}
+                  className="px-6 py-8 text-center text-gray-400"
+                >
+                  Sin resultados
+                </td>
+              </tr>
+            ) : (
+              pageData.map((row) => (
+                <tr key={row.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                  <td className="px-6 py-4" style={{ color: "#64748B" }}>
+                    {renderRowId ? renderRowId(row.id) : row.id}
+                  </td>
+                  {columns.map((col) => (
+                    <td key={String(col.key)} className="px-6 py-4 text-gray-700">
+                      {col.render ? col.render(row) : String(row[col.key])}
+                    </td>
+                  ))}
+                  {actions && actions.length > 0 && (
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        {actions.map((action) => (
+                          <button
+                            key={action.label}
+                            onClick={() => action.onClick(row)}
+                            className="btn btn-primary btn-sm"
+                          >
+                            {action.icon && <action.icon size={14} />}
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex justify-end">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      </div>
     </div>
   );
 }
