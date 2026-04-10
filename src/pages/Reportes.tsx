@@ -1,10 +1,13 @@
 import { Droplet, Zap, Trash2, CirclePlus } from "lucide-react";
 import { Button, Card } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../constants";
 import List, { type FilterConfig } from "../components/ui/LIst";
 
 export default function Reportes() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   if (user?.role === "admin") {
     type Reporte = {
@@ -182,6 +185,7 @@ export default function Reportes() {
           <div className="flex items-center gap-4 mt-2 justify-between">
             <small>Control y seguimiento de servicios activos</small>
             <Button
+              onClick={() => navigate(ROUTES.DETALLES_REPORTE)}
               text="Reporte"
               icon={CirclePlus}
               variant_classes="btn-primary btn-sm w-[150px]"
@@ -298,7 +302,7 @@ export default function Reportes() {
             actions={[
               {
                 label: "Ver Detalles",
-                onClick: (row) => alert(`Ver detalles del reporte ${row.id}`),
+                onClick: () => navigate(ROUTES.DETALLES_REPORTE),
               },
             ]}
           />

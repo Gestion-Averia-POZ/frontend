@@ -2,12 +2,14 @@ import { type LucideIcon } from "lucide-react";
 import { AlertCircle } from "lucide-react";
 import Button from "./Button";
 import Input from "./Input";
+import CustomSelect from "./CustomSelect";
 
 interface Field {
   icon?: React.ElementType;
   label: string;
   placeholder: string;
   type?: string;
+  options?: string[];
   // Props opcionales para inputs controlados
   value?: string;
   onChange?: (value: string) => void;
@@ -47,6 +49,7 @@ export default function Form({
     label,
     placeholder,
     type = "text",
+    options,
     value,
     onChange,
   }: Field) => (
@@ -56,7 +59,14 @@ export default function Form({
         <span className="label-text font-medium">{label}</span>
       </label>
 
-      {label === "Mensaje" ? (
+      {type === "select" ? (
+        <CustomSelect
+          placeholder={placeholder}
+          options={options ?? []}
+          value={value}
+          onChange={onChange}
+        />
+      ) : label === "Mensaje" ? (
         <textarea
           className="textarea w-full resize-none"
           placeholder={placeholder}
@@ -78,10 +88,7 @@ export default function Form({
   const stackSection = gridFields ? fields.slice(gridFields) : fields;
 
   return (
-    <form
-      className={containerClasses}
-      onSubmit={onSubmit}
-    >
+    <form className={containerClasses} onSubmit={onSubmit}>
       <div className="flex flex-col gap-4">
         {gridSection.length > 0 && (
           <div className="grid grid-cols-2 gap-4">

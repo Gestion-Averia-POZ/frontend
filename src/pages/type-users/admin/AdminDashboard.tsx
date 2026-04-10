@@ -11,8 +11,11 @@ import { Button, Card, MetricsCharts } from "../../../components/ui";
 import { Map } from "../../../components/layout";
 import servicesSvg from "../../../assets/icons/services.svg";
 import List from "../../../components/ui/LIst";
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../../constants";
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   return (
     <div className="max-w-6xl mx-auto px-2">
       <section id="Resumen" className="flex flex-col gap-2">
@@ -231,7 +234,7 @@ export default function AdminDashboard() {
           actions={[
             {
               label: "Ver Detalles",
-              onClick: (row) => alert(`Ver detalles de reporte ${row.id}`),
+              onClick: () => navigate(ROUTES.DETALLES_REPORTE),
             },
           ]}
         />

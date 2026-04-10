@@ -15,6 +15,7 @@ import {
   UserCircle,
   PanelRightClose,
   LogOut,
+  Wrench,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES, DASHBOARD_ROUTES } from "../../constants";
@@ -210,6 +211,14 @@ export default function Sidebar() {
           collapsed={collapsed}
           isActive={pathname.startsWith("/dashboard")}
           onClick={() => navigate(dashboardRoute)}
+        />
+
+        <NavItem
+          icon={<Wrench size={18} />}
+          label="Servicios"
+          collapsed={collapsed}
+          isActive={pathname === ROUTES.SERVICIOS}
+          onClick={() => navigate(ROUTES.SERVICIOS)}
         />
         <NavItem
           icon={<FileBarChart2 size={18} />}

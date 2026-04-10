@@ -6,7 +6,16 @@ export const ROUTES = {
   REGISTER: "/register",
   RECOVER_PASSWORD: "/recover-password",
   REPORTES: "/reportes",
+  DETALLES_REPORTE: "/reportes/detalles-reporte",
 } as const;
+
+// Ruta de dashboard según el rol del usuario
+export const DASHBOARD_ROUTES: Record<UserRole, string> = {
+  admin: "/dashboard/admin",
+  supervisor: "/dashboard/supervisor",
+  worker: "/dashboard/worker",
+  citizen: "/dashboard/citizen",
+};
 
 export const APP_NAME = "Urbis";
 
@@ -44,11 +53,3 @@ export const MOCK_USERS = [
     name: "Ciudadano",
   },
 ] as const;
-
-// Ruta de dashboard según el rol del usuario
-export const DASHBOARD_ROUTES: Record<UserRole, string> = {
-  admin: "/dashboard/admin",
-  supervisor: "/dashboard/supervisor",
-  worker: "/dashboard/worker",
-  citizen: "/dashboard/citizen",
-};
