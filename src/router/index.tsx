@@ -29,6 +29,10 @@ const AdminDashboard = lazy(
 );
 const Reportes = lazy(() => import("../pages/Reportes"));
 const DetallesReporte = lazy(() => import("../pages/DetallesReporte"));
+const Servicios = lazy(() => import("../pages/Servicios"));
+const DetallesServicio = lazy(() => import("../pages/DetallesServicio"));
+const Usuarios = lazy(() => import("../pages/Usuarios"));
+const DetallesUsuario = lazy(() => import("../pages/DetallesUsuario"));
 
 // ─────────────────────────────────────────────
 // FALLBACK DE CARGA
@@ -94,6 +98,11 @@ export const router = createBrowserRouter([
       { path: "/dashboard/admin", element: <AdminDashboard /> },
       { path: ROUTES.REPORTES, element: <Reportes /> },
       { path: ROUTES.DETALLES_REPORTE, element: <DetallesReporte /> },
+      { path: ROUTES.SERVICIOS, element: <Servicios /> },
+      { path: ROUTES.DETALLES_SERVICIO, element: <DetallesServicio /> },
+      { path: ROUTES.EMPRESAS, element: <Usuarios /> },
+      { path: ROUTES.REPORTANTES, element: <Usuarios /> },
+      { path: ROUTES.DETALLES_USUARIO, element: <DetallesUsuario /> },
       // { path: "/dashboard/supervisor", element: <SupervisorDashboard /> },
       // { path: "/dashboard/worker",     element: <WorkerDashboard /> },
       // { path: "/dashboard/citizen",    element: <CitizenDashboard /> },

@@ -7,6 +7,11 @@ export const ROUTES = {
   RECOVER_PASSWORD: "/recover-password",
   REPORTES: "/reportes",
   DETALLES_REPORTE: "/reportes/detalles-reporte",
+  SERVICIOS: "/servicios",
+  DETALLES_SERVICIO: "/servicios/detalles-servicio",
+  EMPRESAS: "/usuarios/empresas",
+  REPORTANTES: "/usuarios/reportantes",
+  DETALLES_USUARIO: "/usuarios/detalles-usuario",
 } as const;
 
 // Ruta de dashboard según el rol del usuario

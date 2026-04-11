@@ -262,18 +262,16 @@ export default function Sidebar() {
               label="Empresas"
               indent
               collapsed={collapsed}
+              isActive={pathname === ROUTES.EMPRESAS}
+              onClick={() => navigate(ROUTES.EMPRESAS)}
             />
             <NavItem
               icon={<UserPlus size={17} />}
               label="Reportantes"
               indent
               collapsed={collapsed}
-            />
-            <NavItem
-              icon={<Monitor size={17} />}
-              label="Extra"
-              indent
-              collapsed={collapsed}
+              isActive={pathname === ROUTES.REPORTANTES}
+              onClick={() => navigate(ROUTES.REPORTANTES)}
             />
           </ul>
         </div>
@@ -298,6 +296,8 @@ export default function Sidebar() {
           icon={<UserCircle size={18} />}
           label="Mi cuenta"
           collapsed={collapsed}
+          isActive={pathname === ROUTES.DETALLES_USUARIO}
+          onClick={() => navigate(ROUTES.DETALLES_USUARIO)}
         />
         <NavItem
           icon={<LogOut size={18} />}
