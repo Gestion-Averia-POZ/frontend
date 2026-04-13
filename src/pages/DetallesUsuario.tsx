@@ -7,6 +7,7 @@ import {
   UserCircle2,
   Building2,
   CirclePlus,
+  Briefcase,
 } from "lucide-react";
 import { Button } from "../components/ui";
 import List from "../components/ui/LIst";
@@ -14,7 +15,7 @@ import { ROUTES } from "../constants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TipoUsuario = "empresa" | "reportante";
+type TipoUsuario = "empresa" | "reportante" | "empleado";
 
 interface NavState {
   tipo: TipoUsuario;
@@ -116,6 +117,51 @@ const REPORTES_REPORTANTE_DATA = [
     tipo: "Bache profundo en calzada",
     fecha: "Hoy, 09:30",
     estado: "Pendiente",
+  },
+];
+
+const EMPLEADO_MOCK = {
+  id: "EMP-007",
+  nombre: "Jorge",
+  apellido: "Martínez",
+  nombreCompleto: "Jorge Martínez",
+  correo: "j.martinez@urbis.com",
+  telefono: "+58 414 987 6543",
+  direccion: "Urb. La Castellana, Calle 5, Casa 12, Caracas",
+  empresaAsociada: "Aguas del Norte",
+  cargo: "Inspector de Servicios",
+  miembroDesde: "Mar 2022",
+  estado: "Activo",
+};
+
+const REPORTES_EMPLEADO_DATA = [
+  {
+    id: 3021,
+    servicio: "Agua",
+    tipo: "Tubería Rota",
+    fecha: "10 May, 2024",
+    estado: "Atendido",
+  },
+  {
+    id: 3045,
+    servicio: "Electricidad",
+    tipo: "Cable expuesto",
+    fecha: "14 May, 2024",
+    estado: "En Revisión",
+  },
+  {
+    id: 3067,
+    servicio: "Agua",
+    tipo: "Fuga en medidor",
+    fecha: "18 May, 2024",
+    estado: "Pendiente",
+  },
+  {
+    id: 3089,
+    servicio: "Aseo Urbano",
+    tipo: "Contenedor dañado",
+    fecha: "21 May, 2024",
+    estado: "Atendido",
   },
 ];
 
@@ -345,6 +391,160 @@ export default function DetallesUsuario() {
               {
                 key: "servicio",
                 header: "Servicio",
+                render: (row) => (
+                  <span className="text-gray-700">{row.servicio}</span>
+                ),
+              },
+              {
+                key: "tipo",
+                header: "Tipo de Avería",
+                render: (row) => (
+                  <span className="text-gray-700">{row.tipo}</span>
+                ),
+              },
+              {
+                key: "fecha",
+                header: "Fecha",
+                render: (row) => (
+                  <span className="text-gray-500">{row.fecha}</span>
+                ),
+              },
+              {
+                key: "estado",
+                header: "Estado",
+                render: (row) => <EstadoBadge estado={row.estado} />,
+              },
+            ]}
+            actions={[
+              {
+                label: "Ver Detalles",
+                onClick: () => navigate(ROUTES.DETALLES_REPORTE),
+              },
+            ]}
+            itemsPerPage={5}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── EMPLEADO VIEW ───────────────────────────────────────────────────────────
+  if (tipo === "empleado") {
+    return (
+      <div className="max-w-6xl mx-auto px-4 pb-10">
+        {/* Back link */}
+        <button
+          onClick={() => navigate(origen)}
+          className="flex items-center gap-1.5 text-sm text-[#0040DF] font-medium hover:opacity-70 transition-opacity mb-3 cursor-pointer"
+        >
+          <ArrowLeft size={15} />
+          Regresar a la lista
+        </button>
+
+        {/* Page header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Detalle de Empleado</h1>
+          <button className="px-4 py-2 rounded-xl bg-[#0040DF] text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+            Guardar Cambio
+          </button>
+        </div>
+
+        {/* Info card */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
+          <div className="flex gap-8">
+            {/* Left — avatar + meta */}
+            <div className="flex flex-col items-center gap-3 min-w-[160px]">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center">
+                  <UserCircle2 size={56} color="#94A3B8" />
+                </div>
+                <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white" />
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-gray-900 text-base">
+                  {EMPLEADO_MOCK.nombreCompleto}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{EMPLEADO_MOCK.cargo}</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-[#EFF6FF] text-[#0040DF] text-xs font-semibold">
+                {EMPLEADO_MOCK.id}
+              </span>
+              <div className="w-full flex flex-col gap-1 mt-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Estado</span>
+                  <span className="font-semibold text-green-600">
+                    {EMPLEADO_MOCK.estado}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Miembro desde</span>
+                  <span className="text-gray-700">{EMPLEADO_MOCK.miembroDesde}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right — fields */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-4">
+                <Briefcase size={16} color="#0040DF" />
+                <span className="font-semibold text-gray-800">
+                  Información del Empleado
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Field
+                  label="Nombre Completo"
+                  value={EMPLEADO_MOCK.nombreCompleto}
+                  colSpan
+                />
+                <Field
+                  label="Correo Electrónico"
+                  value={EMPLEADO_MOCK.correo}
+                  icon={<Mail size={14} />}
+                />
+                <Field
+                  label="Número de Teléfono"
+                  value={EMPLEADO_MOCK.telefono}
+                  icon={<Phone size={14} />}
+                />
+                <Field
+                  label="Dirección"
+                  value={EMPLEADO_MOCK.direccion}
+                  icon={<MapPin size={14} />}
+                  colSpan
+                />
+                <Field
+                  label="Empresa Asociada"
+                  value={EMPLEADO_MOCK.empresaAsociada}
+                  icon={<Building2 size={14} />}
+                />
+                <Field label="Cargo" value={EMPLEADO_MOCK.cargo} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Assigned reports */}
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Reportes Asignados
+          </h2>
+          <List
+            data={REPORTES_EMPLEADO_DATA}
+            filters={[
+              { field: "servicio", label: "Servicio", type: "checkbox" },
+              { field: "estado", label: "Estado", type: "checkbox" },
+              { field: "tipo", label: "Buscar avería", type: "text" },
+            ]}
+            renderRowId={(id) => (
+              <span className="font-mono text-xs text-[#0040DF]">
+                #REP-{String(id).padStart(4, "0")}
+              </span>
+            )}
+            columns={[
+              {
+                key: "servicio",
+                header: "Tipo de Servicio",
                 render: (row) => (
                   <span className="text-gray-700">{row.servicio}</span>
                 ),

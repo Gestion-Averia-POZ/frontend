@@ -1,17 +1,19 @@
 import { useRef, useState } from "react";
 import {
   Info,
-  Settings2,
   MapPin,
   Users,
   ImageIcon,
   Camera,
   CalendarDays,
   UserCircle2,
+  History,
+  ArrowRight,
 } from "lucide-react";
 import { Map } from "../components/layout";
 import { Button } from "../components/ui";
 import CustomSelect from "../components/ui/CustomSelect";
+import { useAuth } from "../context/AuthContext";
 
 // ── Reutilizable: etiqueta + campo ──────────────
 function Field({
@@ -63,11 +65,74 @@ const TIPOS_POR_CATEGORIA: Record<string, string[]> = {
 
 const CATEGORIAS = Object.keys(TIPOS_POR_CATEGORIA);
 
+// ── Tipos de log ─────────────────────────────────
+type LogEntry = {
+  id: number;
+  fecha: string;
+  usuario: string;
+  campo: string;
+  valorAnterior: string;
+  valorNuevo: string;
+};
+
+type Snapshot = {
+  categoria: string;
+  tipoAveria: string;
+  estado: string;
+  descripcion: string;
+  servicioAfectado: string;
+  calle: string;
+  vecindario: string;
+  responsable: string;
+  compania: string;
+};
+
+const SNAPSHOT_VACIO: Snapshot = {
+  categoria: "",
+  tipoAveria: "",
+  estado: "",
+  descripcion: "",
+  servicioAfectado: "",
+  calle: "",
+  vecindario: "",
+  responsable: "",
+  compania: "",
+};
+
+const LABELS: Record<keyof Snapshot, string> = {
+  categoria: "Categoría",
+  tipoAveria: "Tipo de Avería",
+  estado: "Estado",
+  descripcion: "Descripción",
+  servicioAfectado: "Servicio Afectado",
+  calle: "Calle",
+  vecindario: "Vecindario / Barrio",
+  responsable: "Responsable Asignado",
+  compania: "Compañía Contratista",
+};
+
 // ────────────────────────────────────────────────
 export default function DetallesReporte() {
+  const { user } = useAuth();
   const [imagenes, setImagenes] = useState<File[]>([]);
-  const [categoria, setCategoria] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Estado de cada campo editable ──────────────
+  const [categoria, setCategoria] = useState("");
+  const [tipoAveria, setTipoAveria] = useState("");
+  const [estado, setEstado] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [servicioAfectado, setServicioAfectado] = useState("");
+  const [calle, setCalle] = useState("");
+  const [vecindario, setVecindario] = useState("");
+  const [responsable, setResponsable] = useState("");
+  const [compania, setCompania] = useState("");
+
+  // ── Snapshot (último estado guardado) ──────────
+  const [snapshot, setSnapshot] = useState<Snapshot>(SNAPSHOT_VACIO);
+
+  // ── Historial de cambios ────────────────────────
+  const [logs, setLogs] = useState<LogEntry[]>([]);
 
   const tiposAveria = categoria
     ? [...(TIPOS_POR_CATEGORIA[categoria] ?? []), "Otro"]
@@ -76,6 +141,53 @@ export default function DetallesReporte() {
   function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) return;
     setImagenes((prev) => [...prev, ...Array.from(e.target.files!)]);
+  }
+
+  function handleGuardar() {
+    const current: Snapshot = {
+      categoria,
+      tipoAveria,
+      estado,
+      descripcion,
+      servicioAfectado,
+      calle,
+      vecindario,
+      responsable,
+      compania,
+    };
+
+    const ahora = new Date().toLocaleString("es-VE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const nuevosLogs: LogEntry[] = (
+      Object.keys(current) as (keyof Snapshot)[]
+    )
+      .filter(
+        (key) =>
+          current[key] !== snapshot[key] &&
+          (current[key] !== "" || snapshot[key] !== ""),
+      )
+      .map((key, i) => ({
+        id: Date.now() + i,
+        fecha: ahora,
+        usuario: user?.name ?? "Admin_Urbis_01",
+        campo: LABELS[key],
+        valorAnterior: snapshot[key] || "—",
+        valorNuevo: current[key] || "—",
+      }));
+
+    if (nuevosLogs.length > 0) {
+      setLogs((prev) => [
+        ...prev,
+        ...nuevosLogs,
+      ]);
+      setSnapshot(current);
+    }
   }
 
   return (
@@ -101,7 +213,10 @@ export default function DetallesReporte() {
               <CustomSelect
                 placeholder="Selecciona una categoría"
                 options={CATEGORIAS}
-                onChange={setCategoria}
+                onChange={(v) => {
+                  setCategoria(v);
+                  setTipoAveria("");
+                }}
               />
             </Field>
 
@@ -111,17 +226,14 @@ export default function DetallesReporte() {
                   key={categoria}
                   placeholder="Selecciona un tipo"
                   options={tiposAveria}
+                  onChange={setTipoAveria}
                 />
               </Field>
               <Field label="Estado Inicial">
                 <CustomSelect
                   placeholder="Selecciona un estado"
-                  options={[
-                    "En Proceso",
-                    "Pendiente",
-                    "Asignado",
-                    "Completado",
-                  ]}
+                  options={["En Proceso", "Pendiente", "Asignado", "Completado"]}
+                  onChange={setEstado}
                 />
               </Field>
             </div>
@@ -132,8 +244,11 @@ export default function DetallesReporte() {
                 placeholder="Describa el problema observado con el mayor detalle posible..."
                 className={`${inputClass} resize-none`}
                 style={readonlyStyle}
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
               />
             </Field>
+
             <div className={sectionTitleClass}>
               <MapPin size={17} color="#0040DF" />
               <span>Ubicación Geográfica</span>
@@ -154,6 +269,7 @@ export default function DetallesReporte() {
                       "Red de Agua Potable",
                       "Aseo Urbano",
                     ]}
+                    onChange={setServicioAfectado}
                   />
                 </Field>
 
@@ -163,6 +279,8 @@ export default function DetallesReporte() {
                     placeholder="Av. de la Constitución 45"
                     className={inputClass}
                     style={readonlyStyle}
+                    value={calle}
+                    onChange={(e) => setCalle(e.target.value)}
                   />
                 </Field>
 
@@ -172,6 +290,8 @@ export default function DetallesReporte() {
                     placeholder="Centro Histórico"
                     className={inputClass}
                     style={readonlyStyle}
+                    value={vecindario}
+                    onChange={(e) => setVecindario(e.target.value)}
                   />
                 </Field>
 
@@ -254,6 +374,7 @@ export default function DetallesReporte() {
                     "Téc. Pedro Suárez",
                     "Téc. Ana Flores",
                   ]}
+                  onChange={setResponsable}
                 />
               </Field>
 
@@ -266,6 +387,7 @@ export default function DetallesReporte() {
                     "AguaServ Ltda.",
                     "AseoCorp S.A.",
                   ]}
+                  onChange={setCompania}
                 />
               </Field>
             </div>
@@ -279,7 +401,6 @@ export default function DetallesReporte() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              {/* Botón de subir */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -291,7 +412,6 @@ export default function DetallesReporte() {
                 </span>
               </button>
 
-              {/* Previews de imágenes subidas */}
               {imagenes.map((file, i) => (
                 <img
                   key={i}
@@ -302,7 +422,6 @@ export default function DetallesReporte() {
               ))}
             </div>
 
-            {/* Input file oculto */}
             <input
               ref={fileInputRef}
               type="file"
@@ -317,11 +436,12 @@ export default function DetallesReporte() {
             </p>
           </div>
 
-          {/* Botón submit */}
+          {/* Botones */}
           <div className="grid grid-cols-2 gap-4">
             <Button
-              text="Crear Reporte"
+              text="Guardar Cambios"
               variant_classes="btn-primary w-full h-12 text-base"
+              onClick={handleGuardar}
             />
             <Button
               text="Cancelar"
@@ -329,6 +449,61 @@ export default function DetallesReporte() {
             />
           </div>
         </div>
+      </div>
+
+      {/* ── Historial de Cambios ── */}
+      <div className={`${cardClass} mt-5`}>
+        <div className={sectionTitleClass}>
+          <History size={17} color="#0040DF" />
+          <span>Historial de Cambios</span>
+        </div>
+
+        {logs.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">
+            Aún no hay cambios registrados. Modifica campos y guarda para ver el historial.
+          </p>
+        ) : (
+          <div className="flex flex-col divide-y divide-gray-100">
+            {[...logs].reverse().map((log, idx, arr) => (
+              <div key={log.id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
+                {/* Timeline indicator */}
+                <div className="flex flex-col items-center gap-1 pt-0.5">
+                  <div className="w-8 h-8 rounded-full bg-[#0040DF]/10 flex items-center justify-center shrink-0">
+                    <UserCircle2 size={16} color="#0040DF" />
+                  </div>
+                  {idx < arr.length - 1 && (
+                    <div className="w-px flex-1 bg-gray-200 mt-1" />
+                  )}
+                </div>
+
+                {/* Log content */}
+                <div className="flex-1 pb-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-gray-800">
+                      {log.usuario}
+                    </span>
+                    <span className="text-xs text-gray-400">{log.fecha}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Modificó{" "}
+                    <span className="font-semibold text-gray-700">
+                      {log.campo}
+                    </span>
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2.5 py-1 rounded-lg bg-red-50 text-red-500 text-xs line-through">
+                      {log.valorAnterior}
+                    </span>
+                    <ArrowRight size={13} className="text-gray-400 shrink-0" />
+                    <span className="px-2.5 py-1 rounded-lg bg-green-50 text-green-600 text-xs font-medium">
+                      {log.valorNuevo}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

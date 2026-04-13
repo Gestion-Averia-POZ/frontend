@@ -9,13 +9,14 @@ import {
   ChevronRight,
   Building2,
   UserPlus,
-  Monitor,
   BarChart2,
   Info,
   UserCircle,
   PanelRightClose,
   LogOut,
   Wrench,
+  Briefcase,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES, DASHBOARD_ROUTES } from "../../constants";
@@ -99,6 +100,10 @@ export default function Sidebar() {
   const [usuariosOpen, setUsuariosOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const { logout, user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const isCompany = user?.role === "company";
+  const isWorker = user?.role === "worker";
+  const isCitizen = user?.role === "citizen";
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const dashboardRoute = user ? DASHBOARD_ROUTES[user.role] : "/dashboard";
@@ -177,12 +182,14 @@ export default function Sidebar() {
           badge="15"
           collapsed={collapsed}
         />
-        <NavItem
-          icon={<ClipboardList size={18} />}
-          label="Solicitudes"
-          badge="7"
-          collapsed={collapsed}
-        />
+        {isAdmin && (
+          <NavItem
+            icon={<ClipboardList size={18} />}
+            label="Solicitudes"
+            badge="7"
+            collapsed={collapsed}
+          />
+        )}
       </ul>
 
       <hr className="border-white/10 mb-3" />
@@ -213,13 +220,26 @@ export default function Sidebar() {
           onClick={() => navigate(dashboardRoute)}
         />
 
-        <NavItem
-          icon={<Wrench size={18} />}
-          label="Servicios"
-          collapsed={collapsed}
-          isActive={pathname === ROUTES.SERVICIOS}
-          onClick={() => navigate(ROUTES.SERVICIOS)}
-        />
+        {isAdmin && (
+          <NavItem
+            icon={<Wrench size={18} />}
+            label="Servicios"
+            collapsed={collapsed}
+            isActive={pathname === ROUTES.SERVICIOS}
+            onClick={() => navigate(ROUTES.SERVICIOS)}
+          />
+        )}
+
+        {(isAdmin || isCompany) && (
+          <NavItem
+            icon={<Briefcase size={18} />}
+            label="Empleados"
+            collapsed={collapsed}
+            isActive={pathname === ROUTES.EMPLEADOS}
+            onClick={() => navigate(ROUTES.EMPLEADOS)}
+          />
+        )}
+
         <NavItem
           icon={<FileBarChart2 size={18} />}
           label="Reportes"
@@ -227,71 +247,90 @@ export default function Sidebar() {
           isActive={pathname === ROUTES.REPORTES}
           onClick={() => navigate(ROUTES.REPORTES)}
         />
-        {/* Usuarios con submenu */}
-        <NavItem
-          icon={<Users size={18} />}
-          label="Usuarios"
-          collapsed={collapsed}
-          onClick={() => !collapsed && setUsuariosOpen((o) => !o)}
-          rightElement={
-            <ChevronRight
-              size={16}
+
+        {(isAdmin || isCompany) && (
+          <NavItem
+            icon={<AlertTriangle size={18} />}
+            label="Tipos Averías"
+            collapsed={collapsed}
+            isActive={pathname === ROUTES.TIPOS_AVERIAS}
+            onClick={() => navigate(ROUTES.TIPOS_AVERIAS)}
+          />
+        )}
+
+        {/* Usuarios con submenu — solo admin */}
+        {isAdmin && (
+          <>
+            <NavItem
+              icon={<Users size={18} />}
+              label="Usuarios"
+              collapsed={collapsed}
+              onClick={() => !collapsed && setUsuariosOpen((o) => !o)}
+              rightElement={
+                <ChevronRight
+                  size={16}
+                  style={{
+                    color: TEXT,
+                    transform: usuariosOpen ? "rotate(90deg)" : "rotate(0deg)",
+                    transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                    flexShrink: 0,
+                  }}
+                />
+              }
+            />
+            <div
+              className="overflow-hidden"
               style={{
-                color: TEXT,
-                transform: usuariosOpen ? "rotate(90deg)" : "rotate(0deg)",
-                transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-                flexShrink: 0,
+                maxHeight: usuariosOpen && !collapsed ? submenuMaxHeight : "0px",
+                opacity: usuariosOpen && !collapsed ? 1 : 0,
+                transition:
+                  "max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease",
               }}
-            />
-          }
-        />
+            >
+              <ul className="space-y-0.5 pt-0.5">
+                <NavItem
+                  icon={<Building2 size={17} />}
+                  label="Empresas"
+                  indent
+                  collapsed={collapsed}
+                  isActive={pathname === ROUTES.EMPRESAS}
+                  onClick={() => navigate(ROUTES.EMPRESAS)}
+                />
+                <NavItem
+                  icon={<UserPlus size={17} />}
+                  label="Reportantes"
+                  indent
+                  collapsed={collapsed}
+                  isActive={pathname === ROUTES.REPORTANTES}
+                  onClick={() => navigate(ROUTES.REPORTANTES)}
+                />
+              </ul>
+            </div>
+          </>
+        )}
 
-        {/* Submenu animado con max-height */}
-        <div
-          className="overflow-hidden"
-          style={{
-            maxHeight: usuariosOpen && !collapsed ? submenuMaxHeight : "0px",
-            opacity: usuariosOpen && !collapsed ? 1 : 0,
-            transition:
-              "max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease",
-          }}
-        >
-          <ul className="space-y-0.5 pt-0.5">
-            <NavItem
-              icon={<Building2 size={17} />}
-              label="Empresas"
-              indent
-              collapsed={collapsed}
-              isActive={pathname === ROUTES.EMPRESAS}
-              onClick={() => navigate(ROUTES.EMPRESAS)}
-            />
-            <NavItem
-              icon={<UserPlus size={17} />}
-              label="Reportantes"
-              indent
-              collapsed={collapsed}
-              isActive={pathname === ROUTES.REPORTANTES}
-              onClick={() => navigate(ROUTES.REPORTANTES)}
-            />
-          </ul>
-        </div>
-
-        <NavItem
-          icon={<BarChart2 size={18} />}
-          label="Metricas"
-          collapsed={collapsed}
-        />
+        {!isCitizen && (
+          <NavItem
+            icon={<BarChart2 size={18} />}
+            label="Metricas"
+            collapsed={collapsed}
+            isActive={pathname === ROUTES.METRICAS || pathname.startsWith("/metricas")}
+            onClick={() => navigate(ROUTES.METRICAS)}
+          />
+        )}
       </ul>
 
       <hr className="border-white/10 my-3" />
 
       {/* Bottom */}
       <ul className="space-y-0.5">
-        <NavItem
-          icon={<Info size={18} />}
-          label="Soporte"
-          collapsed={collapsed}
-        />
+        {!isWorker && !isCitizen && (
+          <NavItem
+            icon={<Info size={18} />}
+            label="Soporte"
+            collapsed={collapsed}
+          />
+        )}
         <NavItem
           icon={<UserCircle size={18} />}
           label="Mi cuenta"

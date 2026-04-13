@@ -7,6 +7,7 @@ interface CardProps {
   bgIcon?: LucideIcon;
   bgImage?: string;
   extraClasses: string;
+  compact?: boolean;
 }
 
 export default function Card({
@@ -16,7 +17,28 @@ export default function Card({
   icon: Icon,
   bgIcon: BgIcon,
   bgImage,
+  compact = false,
 }: CardProps) {
+  if (compact) {
+    return (
+      <div className={`rounded-xl shadow-sm ${extraClasses}`}>
+        <div className="flex items-center gap-3 p-4">
+          {Icon && (
+            <div className="w-fit p-1.5 rounded-md bg-current/10">
+              <Icon size={18} className="opacity-80" />
+            </div>
+          )}
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-xs font-semibold uppercase tracking-wide leading-none">
+              {title}
+            </h2>
+            <p className="text-2xl font-bold leading-none">{description}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (BgIcon || bgImage) {
     return (
       <div

@@ -9,15 +9,19 @@ export const ROUTES = {
   DETALLES_REPORTE: "/reportes/detalles-reporte",
   SERVICIOS: "/servicios",
   DETALLES_SERVICIO: "/servicios/detalles-servicio",
+  EMPLEADOS: "/empleados",
   EMPRESAS: "/usuarios/empresas",
   REPORTANTES: "/usuarios/reportantes",
   DETALLES_USUARIO: "/usuarios/detalles-usuario",
+  METRICAS: "/metricas",
+  DETALLES_METRICA: "/metricas/detalles",
+  TIPOS_AVERIAS: "/tipos-averias",
 } as const;
 
 // Ruta de dashboard según el rol del usuario
 export const DASHBOARD_ROUTES: Record<UserRole, string> = {
   admin: "/dashboard/admin",
-  supervisor: "/dashboard/supervisor",
+  company: "/dashboard/company",
   worker: "/dashboard/worker",
   citizen: "/dashboard/citizen",
 };
@@ -30,7 +34,7 @@ export const APP_NAME = "Urbis";
 // los endpoints estén disponibles.
 // ─────────────────────────────────────────────
 
-export type UserRole = "admin" | "supervisor" | "worker" | "citizen";
+export type UserRole = "admin" | "company" | "worker" | "citizen";
 
 export const MOCK_USERS = [
   {
@@ -40,21 +44,21 @@ export const MOCK_USERS = [
     name: "Administrador",
   },
   {
-    email: "supervisor@urbis.com",
-    password: "super123",
-    role: "supervisor" as UserRole,
-    name: "Supervisor",
+    email: "company@ejemplo.com",
+    password: "admin",
+    role: "company" as UserRole,
+    name: "company",
   },
   {
-    email: "worker@urbis.com",
-    password: "worker123",
+    email: "worker@ejemplo.com",
+    password: "admin",
     role: "worker" as UserRole,
-    name: "Trabajador",
+    name: "worker",
   },
   {
-    email: "citizen@urbis.com",
-    password: "citizen123",
+    email: "citizen@ejemplo.com",
+    password: "admin",
     role: "citizen" as UserRole,
-    name: "Ciudadano",
+    name: "reportante",
   },
 ] as const;
