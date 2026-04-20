@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Info,
   MapPin,
@@ -9,6 +10,7 @@ import {
   UserCircle2,
   History,
   ArrowRight,
+  Settings,
 } from "lucide-react";
 import { Map } from "../components/layout";
 import { Button } from "../components/ui";
@@ -76,60 +78,149 @@ type LogEntry = {
 };
 
 type Snapshot = {
+  empresa: string;
   categoria: string;
   tipoAveria: string;
   estado: string;
   descripcion: string;
-  servicioAfectado: string;
   calle: string;
   vecindario: string;
   responsable: string;
-  compania: string;
 };
 
 const SNAPSHOT_VACIO: Snapshot = {
+  empresa: "",
   categoria: "",
   tipoAveria: "",
   estado: "",
   descripcion: "",
-  servicioAfectado: "",
   calle: "",
   vecindario: "",
   responsable: "",
-  compania: "",
 };
 
 const LABELS: Record<keyof Snapshot, string> = {
+  empresa: "Empresa",
   categoria: "Categoría",
   tipoAveria: "Tipo de Avería",
   estado: "Estado",
   descripcion: "Descripción",
-  servicioAfectado: "Servicio Afectado",
   calle: "Calle",
   vecindario: "Vecindario / Barrio",
   responsable: "Responsable Asignado",
-  compania: "Compañía Contratista",
 };
+
+// Coordenadas aproximadas por sector para el pin de vista
+const SECTOR_COORDS: Record<string, [number, number]> = {
+  "Unare":         [-62.753, 8.281],
+  "Sierra Parima": [-62.737, 8.286],
+  "La Llanada":    [-62.667, 8.295],
+  "Centro":        [-62.705, 8.296],
+};
+
+function formatLat(lat: number) { return `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? "N" : "S"}`; }
+function formatLng(lng: number) { return `${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? "E" : "W"}`; }
+
+// ── Tipo del reporte que llega por navigate state ─
+type ReporteState = {
+  id: number;
+  correlativo: string;
+  empresa: string;
+  servicio: string;
+  prioridad: string;
+  estado: string;
+  sector: string;
+  responsable: string;
+  creadoPor: string;
+};
+
+type LocationState = {
+  mode?: "new" | "view";
+  reporte?: ReporteState;
+  counters?: { A: number; L: number; U: number };
+} | null;
+
+// ── Helpers de mapeo ─────────────────────────────
+function mapServicioToCategoria(servicio: string): string {
+  if (servicio === "Agua") return "Agua Potable";
+  return servicio;
+}
+
+function mapEstadoToForm(estado: string): string {
+  const MAP: Record<string, string> = {
+    Revisión: "En Proceso",
+    Resuelto: "Completado",
+  };
+  return MAP[estado] ?? estado;
+}
 
 // ────────────────────────────────────────────────
 export default function DetallesReporte() {
   const { user } = useAuth();
+  const location = useLocation();
+  const state = location.state as LocationState;
+
+  const reporte = state?.reporte ?? null;
+  const isViewMode = !!reporte;
+  const isWorker = user?.role === "worker";
+  const isAdmin = user?.role === "admin";
+  const isCitizen = user?.role === "citizen";
+
+  // Coords para el pin del mapa
+  const reportePinCoords = reporte?.sector ? SECTOR_COORDS[reporte.sector] : undefined;
+  const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
+
+  // ro(field): true → campo de solo lectura
+  const ro = (field: string) => isWorker && field !== "estado";
+
   const [imagenes, setImagenes] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [estadoRegistro, setEstadoRegistro] = useState<"archivado" | "cancelado" | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
+        setDropdownOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [dropdownOpen]);
+
+  // ── Correlativo ───────────────────────────────
+  const [correlativo, setCorrelativo] = useState(reporte?.correlativo ?? "");
 
   // ── Estado de cada campo editable ──────────────
-  const [categoria, setCategoria] = useState("");
+  const [categoria, setCategoria] = useState(
+    reporte ? mapServicioToCategoria(reporte.servicio) : "",
+  );
   const [tipoAveria, setTipoAveria] = useState("");
-  const [estado, setEstado] = useState("");
+  const [estado, setEstado] = useState(
+    reporte ? mapEstadoToForm(reporte.estado) : "",
+  );
   const [descripcion, setDescripcion] = useState("");
-  const [servicioAfectado, setServicioAfectado] = useState("");
   const [calle, setCalle] = useState("");
-  const [vecindario, setVecindario] = useState("");
-  const [responsable, setResponsable] = useState("");
-  const [compania, setCompania] = useState("");
+  const [vecindario, setVecindario] = useState(reporte?.sector ?? "");
+  const [responsable, setResponsable] = useState(reporte?.responsable ?? "");
+  const [empresa, setEmpresa] = useState(reporte?.empresa ?? "");
 
   // ── Snapshot (último estado guardado) ──────────
-  const [snapshot, setSnapshot] = useState<Snapshot>(SNAPSHOT_VACIO);
+  const [snapshot, setSnapshot] = useState<Snapshot>(
+    reporte
+      ? {
+          empresa: reporte.empresa,
+          categoria: mapServicioToCategoria(reporte.servicio),
+          tipoAveria: "",
+          estado: mapEstadoToForm(reporte.estado),
+          descripcion: "",
+          calle: "",
+          vecindario: reporte.sector,
+          responsable: reporte.responsable,
+        }
+      : SNAPSHOT_VACIO,
+  );
 
   // ── Historial de cambios ────────────────────────
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -145,15 +236,14 @@ export default function DetallesReporte() {
 
   function handleGuardar() {
     const current: Snapshot = {
+      empresa,
       categoria,
       tipoAveria,
       estado,
       descripcion,
-      servicioAfectado,
       calle,
       vecindario,
       responsable,
-      compania,
     };
 
     const ahora = new Date().toLocaleString("es-VE", {
@@ -164,9 +254,7 @@ export default function DetallesReporte() {
       minute: "2-digit",
     });
 
-    const nuevosLogs: LogEntry[] = (
-      Object.keys(current) as (keyof Snapshot)[]
-    )
+    const nuevosLogs: LogEntry[] = (Object.keys(current) as (keyof Snapshot)[])
       .filter(
         (key) =>
           current[key] !== snapshot[key] &&
@@ -182,12 +270,24 @@ export default function DetallesReporte() {
       }));
 
     if (nuevosLogs.length > 0) {
-      setLogs((prev) => [
-        ...prev,
-        ...nuevosLogs,
-      ]);
+      setLogs((prev) => [...prev, ...nuevosLogs]);
       setSnapshot(current);
     }
+  }
+
+  function handleRegistrar() {
+    if (categoria && !correlativo) {
+      const prefix =
+        categoria === "Agua Potable"
+          ? "A"
+          : categoria === "Electricidad"
+            ? "L"
+            : "U";
+      const counters = state?.counters ?? { A: 5, L: 3, U: 4 };
+      const count = (counters[prefix as "A" | "L" | "U"] ?? 0) + 1;
+      setCorrelativo(`#${prefix}-${String(count).padStart(5, "0")}`);
+    }
+    handleGuardar();
   }
 
   return (
@@ -195,44 +295,142 @@ export default function DetallesReporte() {
       {/* ── Header ── */}
       <div className="mb-6">
         <small className="text-[#0040DF] font-bold">Detalles de Reporte</small>
-        <h1 className="text-2xl font-bold">Nuevo Reporte de Avería</h1>
+        <h1 className="text-2xl font-bold">
+          {isViewMode ? "Editando Reporte" : "Nuevo Reporte de Avería"}
+        </h1>
       </div>
 
       {/* ── Grid 2 columnas asimétricas ── */}
       <div className="grid gap-5" style={{ gridTemplateColumns: "3fr 2fr" }}>
         {/* ══════════ COLUMNA IZQUIERDA ══════════ */}
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 relative overflow-hidden">
+          {/* Ribbon de estado */}
+          {estadoRegistro && (
+            <div
+              className="absolute top-6 -right-9 w-40 text-center text-[11px] font-bold tracking-widest text-white py-1.5 z-10 pointer-events-none"
+              style={{
+                transform: "rotate(45deg)",
+                backgroundColor: estadoRegistro === "archivado" ? "#64748B" : "#DC2626",
+              }}
+            >
+              {estadoRegistro === "archivado" ? "ARCHIVADO" : "CANCELADO"}
+            </div>
+          )}
+
           {/* Card: Información del Reporte */}
           <div className={cardClass}>
             <div className={sectionTitleClass}>
               <Info size={17} color="#0040DF" />
               <span>Información del Reporte</span>
+              {isViewMode && !isWorker && (
+                <div ref={dropdownRef} className="relative">
+                  <button
+                    type="button"
+                    className="p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors"
+                    onClick={() => setDropdownOpen((v) => !v)}
+                  >
+                    <Settings size={17} color="#64748B" />
+                  </button>
+                  {dropdownOpen && (
+                    <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                      <button
+                        type="button"
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => { setEstadoRegistro("archivado"); setDropdownOpen(false); }}
+                      >
+                        Archivar
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
+                        onClick={() => { setEstadoRegistro("cancelado"); setDropdownOpen(false); }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-gray-50 cursor-pointer border-t border-gray-100"
+                        onClick={() => { setEstadoRegistro(null); setDropdownOpen(false); }}
+                      >
+                        Restablecer
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
+            {/* Número de Reporte */}
+            {correlativo && (
+              <p className="text-2xl font-bold">
+                <span className="text-[#64748B]">{correlativo}</span>
+              </p>
+            )}
+
+            <Field label="Empresa">
+              {ro("empresa") ? (
+                <div className={inputClass} style={readonlyStyle}>
+                  {empresa || "—"}
+                </div>
+              ) : (
+                <CustomSelect
+                  placeholder="Selecciona una empresa"
+                  options={[
+                    "Aguas del Norte",
+                    "Energía Urbana",
+                    "Metrogas Central",
+                    "Limpieza Regional",
+                  ]}
+                  value={empresa}
+                  onChange={setEmpresa}
+                />
+              )}
+            </Field>
+
             <Field label="Categoría">
-              <CustomSelect
-                placeholder="Selecciona una categoría"
-                options={CATEGORIAS}
-                onChange={(v) => {
-                  setCategoria(v);
-                  setTipoAveria("");
-                }}
-              />
+              {ro("categoria") ? (
+                <div className={inputClass} style={readonlyStyle}>
+                  {categoria || "—"}
+                </div>
+              ) : (
+                <CustomSelect
+                  placeholder="Selecciona una categoría"
+                  options={CATEGORIAS}
+                  value={categoria}
+                  onChange={(v) => {
+                    setCategoria(v);
+                    setTipoAveria("");
+                  }}
+                />
+              )}
             </Field>
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="Tipo de Avería">
-                <CustomSelect
-                  key={categoria}
-                  placeholder="Selecciona un tipo"
-                  options={tiposAveria}
-                  onChange={setTipoAveria}
-                />
+                {ro("tipoAveria") ? (
+                  <div className={inputClass} style={readonlyStyle}>
+                    {tipoAveria || "—"}
+                  </div>
+                ) : (
+                  <CustomSelect
+                    key={categoria}
+                    placeholder="Selecciona un tipo"
+                    options={tiposAveria}
+                    value={tipoAveria}
+                    onChange={setTipoAveria}
+                  />
+                )}
               </Field>
-              <Field label="Estado Inicial">
+              <Field label="Estado">
                 <CustomSelect
                   placeholder="Selecciona un estado"
-                  options={["En Proceso", "Pendiente", "Asignado", "Completado"]}
+                  options={[
+                    "En Proceso",
+                    "Pendiente",
+                    "Asignado",
+                    "Completado",
+                  ]}
+                  value={estado}
                   onChange={setEstado}
                 />
               </Field>
@@ -242,9 +440,10 @@ export default function DetallesReporte() {
               <textarea
                 rows={4}
                 placeholder="Describa el problema observado con el mayor detalle posible..."
-                className={`${inputClass} resize-none`}
+                className={`${inputClass} resize-none${ro("descripcion") ? " cursor-default" : ""}`}
                 style={readonlyStyle}
                 value={descripcion}
+                readOnly={ro("descripcion")}
                 onChange={(e) => setDescripcion(e.target.value)}
               />
             </Field>
@@ -260,26 +459,14 @@ export default function DetallesReporte() {
             <div className="grid grid-cols-2 gap-4">
               {/* Campos de ubicación */}
               <div className="flex flex-col gap-3">
-                <Field label="Servicio Afectado">
-                  <CustomSelect
-                    placeholder="Selecciona un servicio"
-                    options={[
-                      "Red Eléctrica Norte",
-                      "Red Eléctrica Sur",
-                      "Red de Agua Potable",
-                      "Aseo Urbano",
-                    ]}
-                    onChange={setServicioAfectado}
-                  />
-                </Field>
-
                 <Field label="Calle">
                   <input
                     type="text"
                     placeholder="Av. de la Constitución 45"
-                    className={inputClass}
+                    className={`${inputClass}${ro("calle") ? " cursor-default" : ""}`}
                     style={readonlyStyle}
                     value={calle}
+                    readOnly={ro("calle")}
                     onChange={(e) => setCalle(e.target.value)}
                   />
                 </Field>
@@ -288,9 +475,10 @@ export default function DetallesReporte() {
                   <input
                     type="text"
                     placeholder="Centro Histórico"
-                    className={inputClass}
+                    className={`${inputClass}${ro("vecindario") ? " cursor-default" : ""}`}
                     style={readonlyStyle}
                     value={vecindario}
+                    readOnly={ro("vecindario")}
                     onChange={(e) => setVecindario(e.target.value)}
                   />
                 </Field>
@@ -300,14 +488,26 @@ export default function DetallesReporte() {
                     <input
                       type="text"
                       readOnly
-                      defaultValue="40.4168° N"
+                      value={
+                        isViewMode && reportePinCoords
+                          ? formatLat(reportePinCoords[1])
+                          : selectedCoords
+                          ? formatLat(selectedCoords[1])
+                          : "—"
+                      }
                       className={`${inputClass} text-gray-400 cursor-default`}
                       style={readonlyStyle}
                     />
                     <input
                       type="text"
                       readOnly
-                      defaultValue="3.7038° W"
+                      value={
+                        isViewMode && reportePinCoords
+                          ? formatLng(reportePinCoords[0])
+                          : selectedCoords
+                          ? formatLng(selectedCoords[0])
+                          : "—"
+                      }
                       className={`${inputClass} text-gray-400 cursor-default`}
                       style={readonlyStyle}
                     />
@@ -316,17 +516,12 @@ export default function DetallesReporte() {
               </div>
 
               {/* Mapa */}
-              <div className="flex flex-col gap-2">
-                <div className="h-[260px] rounded-xl overflow-hidden">
-                  <Map />
-                </div>
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-xs font-semibold text-[#0040DF] self-end hover:opacity-70 transition-opacity cursor-pointer"
-                >
-                  <MapPin size={13} />
-                  Fijar Ubicación
-                </button>
+              <div className="h-[260px] rounded-xl">
+                <Map
+                  pinCoords={isViewMode ? reportePinCoords : undefined}
+                  editPin={!isViewMode && (isAdmin || isCitizen)}
+                  onPinChange={(coords) => setSelectedCoords(coords)}
+                />
               </div>
             </div>
           </div>
@@ -348,7 +543,7 @@ export default function DetallesReporte() {
                   style={readonlyStyle}
                 >
                   <span className="text-sm font-medium text-gray-700 flex-1 truncate">
-                    Admin_Urbis_01
+                    {reporte?.creadoPor ?? "Admin_Urbis_01"}
                   </span>
                 </div>
               </Field>
@@ -365,31 +560,27 @@ export default function DetallesReporte() {
                 </div>
               </Field>
 
-              <Field label="Responsable Asignado">
-                <CustomSelect
-                  placeholder="Selecciona un responsable"
-                  options={[
-                    "Ing. Roberto Méndez",
-                    "Ing. Laura Castillo",
-                    "Téc. Pedro Suárez",
-                    "Téc. Ana Flores",
-                  ]}
-                  onChange={setResponsable}
-                />
-              </Field>
-
-              <Field label="Compañía Contratista">
-                <CustomSelect
-                  placeholder="Selecciona una compañía"
-                  options={[
-                    "Construcciones Urbanas S.A.",
-                    "ElectroPro C.A.",
-                    "AguaServ Ltda.",
-                    "AseoCorp S.A.",
-                  ]}
-                  onChange={setCompania}
-                />
-              </Field>
+              <div className="col-span-2">
+                <Field label="Responsable Asignado">
+                  {ro("responsable") ? (
+                    <div className={inputClass} style={readonlyStyle}>
+                      {responsable || "—"}
+                    </div>
+                  ) : (
+                    <CustomSelect
+                      placeholder="Selecciona un responsable"
+                      options={[
+                        "Ing. Roberto Méndez",
+                        "Ing. Laura Castillo",
+                        "Téc. Pedro Suárez",
+                        "Téc. Ana Flores",
+                      ]}
+                      value={responsable}
+                      onChange={setResponsable}
+                    />
+                  )}
+                </Field>
+              </div>
             </div>
           </div>
 
@@ -401,16 +592,18 @@ export default function DetallesReporte() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-200 rounded-xl h-28 flex flex-col items-center justify-center gap-1.5 hover:border-blue-300 hover:bg-blue-50/50 transition-colors cursor-pointer"
-              >
-                <Camera size={20} color="#94A3B8" />
-                <span className="text-xs font-semibold text-gray-400 tracking-wide">
-                  SUBIR
-                </span>
-              </button>
+              {!isWorker && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-200 rounded-xl h-28 flex flex-col items-center justify-center gap-1.5 hover:border-blue-300 hover:bg-blue-50/50 transition-colors cursor-pointer"
+                >
+                  <Camera size={20} color="#94A3B8" />
+                  <span className="text-xs font-semibold text-gray-400 tracking-wide">
+                    SUBIR
+                  </span>
+                </button>
+              )}
 
               {imagenes.map((file, i) => (
                 <img
@@ -439,9 +632,9 @@ export default function DetallesReporte() {
           {/* Botones */}
           <div className="grid grid-cols-2 gap-4">
             <Button
-              text="Guardar Cambios"
+              text={isViewMode ? "Guardar Cambios" : "Registrar"}
               variant_classes="btn-primary w-full h-12 text-base"
-              onClick={handleGuardar}
+              onClick={isViewMode ? handleGuardar : handleRegistrar}
             />
             <Button
               text="Cancelar"
@@ -460,12 +653,16 @@ export default function DetallesReporte() {
 
         {logs.length === 0 ? (
           <p className="text-sm text-gray-400 py-4 text-center">
-            Aún no hay cambios registrados. Modifica campos y guarda para ver el historial.
+            Aún no hay cambios registrados. Modifica campos y guarda para ver el
+            historial.
           </p>
         ) : (
           <div className="flex flex-col divide-y divide-gray-100">
             {[...logs].reverse().map((log, idx, arr) => (
-              <div key={log.id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
+              <div
+                key={log.id}
+                className="flex gap-4 py-4 first:pt-0 last:pb-0"
+              >
                 {/* Timeline indicator */}
                 <div className="flex flex-col items-center gap-1 pt-0.5">
                   <div className="w-8 h-8 rounded-full bg-[#0040DF]/10 flex items-center justify-center shrink-0">

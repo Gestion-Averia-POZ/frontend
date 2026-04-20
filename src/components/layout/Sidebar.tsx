@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Bell,
-  ClipboardList,
   LayoutDashboard,
   FileBarChart2,
   Users,
@@ -10,7 +9,6 @@ import {
   Building2,
   UserPlus,
   BarChart2,
-  Info,
   UserCircle,
   PanelRightClose,
   LogOut,
@@ -102,10 +100,11 @@ export default function Sidebar() {
   const { logout, user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isCompany = user?.role === "company";
-  const isWorker = user?.role === "worker";
   const isCitizen = user?.role === "citizen";
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
+  const navState = location.state as { tipo?: string; origen?: string; mode?: string } | null;
   const dashboardRoute = user ? DASHBOARD_ROUTES[user.role] : "/dashboard";
 
   function handleLogout() {
@@ -182,14 +181,6 @@ export default function Sidebar() {
           badge="15"
           collapsed={collapsed}
         />
-        {isAdmin && (
-          <NavItem
-            icon={<ClipboardList size={18} />}
-            label="Solicitudes"
-            badge="7"
-            collapsed={collapsed}
-          />
-        )}
       </ul>
 
       <hr className="border-white/10 mb-3" />
@@ -230,16 +221,6 @@ export default function Sidebar() {
           />
         )}
 
-        {(isAdmin || isCompany) && (
-          <NavItem
-            icon={<Briefcase size={18} />}
-            label="Empleados"
-            collapsed={collapsed}
-            isActive={pathname === ROUTES.EMPLEADOS}
-            onClick={() => navigate(ROUTES.EMPLEADOS)}
-          />
-        )}
-
         <NavItem
           icon={<FileBarChart2 size={18} />}
           label="Reportes"
@@ -255,6 +236,17 @@ export default function Sidebar() {
             collapsed={collapsed}
             isActive={pathname === ROUTES.TIPOS_AVERIAS}
             onClick={() => navigate(ROUTES.TIPOS_AVERIAS)}
+          />
+        )}
+
+        {/* Empleados — visible para company sin submenu */}
+        {isCompany && (
+          <NavItem
+            icon={<Briefcase size={18} />}
+            label="Empleados"
+            collapsed={collapsed}
+            isActive={pathname === ROUTES.EMPLEADOS || (pathname === ROUTES.DETALLES_USUARIO && navState?.origen === ROUTES.EMPLEADOS)}
+            onClick={() => navigate(ROUTES.EMPLEADOS)}
           />
         )}
 
@@ -281,7 +273,8 @@ export default function Sidebar() {
             <div
               className="overflow-hidden"
               style={{
-                maxHeight: usuariosOpen && !collapsed ? submenuMaxHeight : "0px",
+                maxHeight:
+                  usuariosOpen && !collapsed ? submenuMaxHeight : "0px",
                 opacity: usuariosOpen && !collapsed ? 1 : 0,
                 transition:
                   "max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease",
@@ -293,15 +286,23 @@ export default function Sidebar() {
                   label="Empresas"
                   indent
                   collapsed={collapsed}
-                  isActive={pathname === ROUTES.EMPRESAS}
+                  isActive={pathname === ROUTES.EMPRESAS || (pathname === ROUTES.DETALLES_USUARIO && navState?.origen === ROUTES.EMPRESAS)}
                   onClick={() => navigate(ROUTES.EMPRESAS)}
+                />
+                <NavItem
+                  icon={<Briefcase size={18} />}
+                  label="Empleados"
+                  indent
+                  collapsed={collapsed}
+                  isActive={pathname === ROUTES.EMPLEADOS || (pathname === ROUTES.DETALLES_USUARIO && navState?.origen === ROUTES.EMPLEADOS)}
+                  onClick={() => navigate(ROUTES.EMPLEADOS)}
                 />
                 <NavItem
                   icon={<UserPlus size={17} />}
                   label="Reportantes"
                   indent
                   collapsed={collapsed}
-                  isActive={pathname === ROUTES.REPORTANTES}
+                  isActive={pathname === ROUTES.REPORTANTES || (pathname === ROUTES.DETALLES_USUARIO && navState?.origen === ROUTES.REPORTANTES)}
                   onClick={() => navigate(ROUTES.REPORTANTES)}
                 />
               </ul>
@@ -314,7 +315,9 @@ export default function Sidebar() {
             icon={<BarChart2 size={18} />}
             label="Metricas"
             collapsed={collapsed}
-            isActive={pathname === ROUTES.METRICAS || pathname.startsWith("/metricas")}
+            isActive={
+              pathname === ROUTES.METRICAS || pathname.startsWith("/metricas")
+            }
             onClick={() => navigate(ROUTES.METRICAS)}
           />
         )}
@@ -324,18 +327,11 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <ul className="space-y-0.5">
-        {!isWorker && !isCitizen && (
-          <NavItem
-            icon={<Info size={18} />}
-            label="Soporte"
-            collapsed={collapsed}
-          />
-        )}
         <NavItem
           icon={<UserCircle size={18} />}
           label="Mi cuenta"
           collapsed={collapsed}
-          isActive={pathname === ROUTES.DETALLES_USUARIO}
+          isActive={pathname === ROUTES.DETALLES_USUARIO && !navState?.origen}
           onClick={() => navigate(ROUTES.DETALLES_USUARIO)}
         />
         <NavItem

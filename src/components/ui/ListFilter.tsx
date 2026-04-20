@@ -16,14 +16,16 @@ interface Props<T extends object> {
   filters: FilterConfig<T>[];
   data: T[];
   onChange: (state: FilterState) => void;
+  initialCheckbox?: Record<string, string[]>;
 }
 
 export default function ListFilter<T extends object>({
   filters,
   data,
   onChange,
+  initialCheckbox,
 }: Props<T>) {
-  const [checkbox, setCheckbox] = useState<Record<string, string[]>>({});
+  const [checkbox, setCheckbox] = useState<Record<string, string[]>>(initialCheckbox ?? {});
   const [text, setText] = useState<Record<string, string>>({});
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 

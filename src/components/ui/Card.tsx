@@ -8,6 +8,7 @@ interface CardProps {
   bgImage?: string;
   extraClasses: string;
   compact?: boolean;
+  onClick?: () => void;
 }
 
 export default function Card({
@@ -18,10 +19,14 @@ export default function Card({
   bgIcon: BgIcon,
   bgImage,
   compact = false,
+  onClick,
 }: CardProps) {
   if (compact) {
     return (
-      <div className={`rounded-xl shadow-sm ${extraClasses}`}>
+      <div
+        className={`rounded-xl shadow-sm ${extraClasses} ${onClick ? "cursor-pointer hover:brightness-95 transition-all" : ""}`}
+        onClick={onClick}
+      >
         <div className="flex items-center gap-3 p-4">
           {Icon && (
             <div className="w-fit p-1.5 rounded-md bg-current/10">
@@ -42,7 +47,8 @@ export default function Card({
   if (BgIcon || bgImage) {
     return (
       <div
-        className={`card-lg shadow-sm relative overflow-hidden ${extraClasses}`}
+        className={`card-lg shadow-sm relative overflow-hidden ${extraClasses} ${onClick ? "cursor-pointer hover:brightness-95 transition-all" : ""}`}
+        onClick={onClick}
       >
         <div className="p-4 relative z-10 flex flex-col gap-1">
           {Icon && (
@@ -73,7 +79,10 @@ export default function Card({
   }
 
   return (
-    <div className={`card card-lg shadow-sm ${extraClasses}`}>
+    <div
+      className={`card card-lg shadow-sm ${extraClasses} ${onClick ? "cursor-pointer hover:brightness-95 transition-all" : ""}`}
+      onClick={onClick}
+    >
       <div className="card-body">
         {Icon && (
           <div className="w-fit p-2 rounded-md bg-[#2563EB]/10">

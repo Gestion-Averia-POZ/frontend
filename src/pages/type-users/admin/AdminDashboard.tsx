@@ -19,15 +19,8 @@ export default function AdminDashboard() {
   return (
     <div className="max-w-6xl mx-auto px-2">
       <section id="Resumen" className="flex flex-col gap-2">
-        <h1 className=" text-4xl font-bold">Resumen</h1>
+        <h1 className=" text-4xl font-bold">Resumen del Sistema</h1>
         <small>Panel de control con resumen de las averías de la ciudad</small>
-        <div className="text-right">
-          <Button
-            text="Descargar Reporte Excel"
-            icon={Download}
-            variant_classes="btn-primary btn-sm w-fit"
-          />
-        </div>
 
         <div className="grid grid-cols-4">
           <Card
@@ -35,31 +28,67 @@ export default function AdminDashboard() {
             description="113"
             bgIcon={Files}
             extraClasses="bg-[#DBEAFE] text-[#1E40AF]"
+            onClick={() => navigate(ROUTES.REPORTES)}
           />
           <Card
             title="Reportes sin Atender"
             description="50"
             bgIcon={AlertTriangle}
             extraClasses="bg-[#FEF9C3] text-[#854D0E]"
+            onClick={() =>
+              navigate(ROUTES.REPORTES, {
+                state: {
+                  initialFilterState: {
+                    checkbox: { estado: ["Pendiente"] },
+                    text: {},
+                  },
+                },
+              })
+            }
           />
           <Card
             title="Reportes Atendidos"
             description="63"
             bgIcon={ClipboardCheck}
             extraClasses="bg-[#DCFCE7] text-[#166534]"
+            onClick={() =>
+              navigate(ROUTES.REPORTES, {
+                state: {
+                  initialFilterState: {
+                    checkbox: { estado: ["Resuelto"] },
+                    text: {},
+                  },
+                },
+              })
+            }
           />
           <Card
             title="Fallas principales"
             description="AGUA/LUZ"
             bgImage={servicesSvg}
             extraClasses="bg-[#FCA5A5] text-[#7F1D1D]"
+            onClick={() =>
+              navigate(ROUTES.REPORTES, {
+                state: {
+                  initialFilterState: {
+                    checkbox: { servicio: ["Agua", "Electricidad"] },
+                    text: {},
+                  },
+                },
+              })
+            }
           />
         </div>
       </section>
 
       <section id="Mapa" className="mt-8">
-        <div className="h-[480px] w-full">
-          <Map />
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            Mapa de Incidencias
+          </h3>
+          <div className="h-[500px] rounded-xl overflow-hidden">
+            <Map />
+          </div>
         </div>
       </section>
 
@@ -234,7 +263,23 @@ export default function AdminDashboard() {
           actions={[
             {
               label: "Ver Detalles",
-              onClick: () => navigate(ROUTES.DETALLES_REPORTE),
+              onClick: (row) =>
+                navigate(ROUTES.DETALLES_REPORTE, {
+                  state: {
+                    reporte: {
+                      id: row.id,
+                      correlativo: `#URB-${String(row.id).padStart(4, "0")}`,
+                      empresa: row.empresa ?? "",
+                      servicio: row.servicio,
+                      prioridad: row.prioridad,
+                      estado: row.estado,
+                      sector: row.sector,
+                      responsable: "",
+                      creadoPor: "",
+                    },
+                    mode: "view",
+                  },
+                }),
             },
           ]}
         />

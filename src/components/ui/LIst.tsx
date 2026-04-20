@@ -9,6 +9,7 @@ interface Action<T> {
   label: string;
   icon?: LucideIcon;
   onClick: (row: T) => void;
+  className?: string;
 }
 
 interface Column<T> {
@@ -24,6 +25,8 @@ interface ListProps<T extends { id: number | string }> {
   itemsPerPage?: number;
   filters?: FilterConfig<T>[];
   renderRowId?: (id: number | string) => React.ReactNode;
+  initialFilterState?: FilterState;
+  filterActions?: React.ReactNode;
 }
 
 export default function List<T extends { id: number | string }>({
@@ -33,23 +36,29 @@ export default function List<T extends { id: number | string }>({
   itemsPerPage = 10,
   filters,
   renderRowId,
+  initialFilterState,
+  filterActions,
 }: ListProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [filterState, setFilterState] = useState<FilterState>({
-    checkbox: {},
-    text: {},
-  });
+  const [filterState, setFilterState] = useState<FilterState>(
+    initialFilterState ?? { checkbox: {}, text: {} },
+  );
 
   const filteredData = data.filter((row) => {
     for (const [field, values] of Object.entries(filterState.checkbox)) {
-      if (values.length > 0 && !values.includes(String(row[field as keyof T]))) {
+      if (
+        values.length > 0 &&
+        !values.includes(String(row[field as keyof T]))
+      ) {
         return false;
       }
     }
     for (const [field, value] of Object.entries(filterState.text)) {
       if (
         value &&
-        !String(row[field as keyof T]).toLowerCase().includes(value.toLowerCase())
+        !String(row[field as keyof T])
+          .toLowerCase()
+          .includes(value.toLowerCase())
       ) {
         return false;
       }
@@ -66,12 +75,25 @@ export default function List<T extends { id: number | string }>({
   const start = (currentPage - 1) * itemsPerPage;
   const pageData = filteredData.slice(start, start + itemsPerPage);
 
-  const thClass = "px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400";
+  const thClass =
+    "px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400";
 
   return (
     <div className="flex flex-col gap-4">
-      {filters && filters.length > 0 && (
-        <ListFilter filters={filters} data={data} onChange={handleFilterChange} />
+      {((filters && filters.length > 0) || filterActions) && (
+        <div className="flex items-start  gap-3">
+          {filters && filters.length > 0 && (
+            <ListFilter
+              filters={filters}
+              data={data}
+              onChange={handleFilterChange}
+              initialCheckbox={initialFilterState?.checkbox}
+            />
+          )}
+          {filterActions && (
+            <div className="flex-shrink-0">{filterActions}</div>
+          )}
+        </div>
       )}
 
       <div className="w-full rounded-xl border border-gray-200 overflow-hidden bg-white">
@@ -99,23 +121,31 @@ export default function List<T extends { id: number | string }>({
               </tr>
             ) : (
               pageData.map((row) => (
-                <tr key={row.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                <tr
+                  key={row.id}
+                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors"
+                >
                   <td className="px-6 py-4" style={{ color: "#64748B" }}>
                     {renderRowId ? renderRowId(row.id) : row.id}
                   </td>
                   {columns.map((col) => (
-                    <td key={String(col.key)} className="px-6 py-4 text-gray-700">
+                    <td
+                      key={String(col.key)}
+                      className="px-6 py-4 text-gray-700"
+                    >
                       {col.render ? col.render(row) : String(row[col.key])}
                     </td>
                   ))}
                   {actions && actions.length > 0 && (
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        {actions.map((action) => (
+                        {actions.map((action, i) => (
                           <button
-                            key={action.label}
+                            key={i}
                             onClick={() => action.onClick(row)}
-                            className="btn btn-primary btn-sm"
+                            className={
+                              action.className ?? "btn btn-primary btn-sm"
+                            }
                           >
                             {action.icon && <action.icon size={14} />}
                             {action.label}

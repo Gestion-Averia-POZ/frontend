@@ -47,7 +47,9 @@ export const MOCK_USERS = [
     email: "company@ejemplo.com",
     password: "admin",
     role: "company" as UserRole,
-    name: "company",
+    name: "Empresa X",
+    empresa: "Empresa X",
+    categorias: ["Agua", "Aseo Urbano"],
   },
   {
     email: "worker@ejemplo.com",

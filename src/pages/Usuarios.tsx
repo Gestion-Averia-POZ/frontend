@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui";
 import List from "../components/ui/LIst";
 import { ROUTES } from "../constants";
+import { CirclePlus } from "lucide-react";
 
 // ── Empresas mock data ────────────────────────────────────────────────────────
 
@@ -10,6 +11,10 @@ const EMPRESAS_DATA = [
     id: 1,
     nombre: "Aguas del Norte",
     subtitulo: "Infraestructura Hidráulica",
+    correo: "contacto@aguasdelnorte.com",
+    telefono: "+58 212 555 0100",
+    direccion: "Av. Principal, Torre Empresarial, Piso 5, Caracas",
+    categorias: ["Agua"],
     empleados: 1240,
     totalReportes: 4502,
     atendidos: 4480,
@@ -20,6 +25,10 @@ const EMPRESAS_DATA = [
     id: 2,
     nombre: "Metrogas Central",
     subtitulo: "Distribución de Gas",
+    correo: "info@metrogascentral.com",
+    telefono: "+58 212 555 0200",
+    direccion: "Calle Comercio, Edificio Gas, Piso 3, Valencia",
+    categorias: ["Electricidad"],
     empleados: 850,
     totalReportes: 2110,
     atendidos: 2005,
@@ -30,6 +39,10 @@ const EMPRESAS_DATA = [
     id: 3,
     nombre: "Energía Urbana",
     subtitulo: "Gestión de Red",
+    correo: "contacto@energiaurbana.com",
+    telefono: "+58 212 555 0300",
+    direccion: "Blvd. Industrial, Torre A, Piso 7, Caracas",
+    categorias: ["Electricidad", "Aseo Urbano"],
     empleados: 2410,
     totalReportes: 8920,
     atendidos: 8100,
@@ -40,6 +53,10 @@ const EMPRESAS_DATA = [
     id: 4,
     nombre: "Limpieza Regional",
     subtitulo: "Gestión de Residuos",
+    correo: "ops@limpiezaregional.com",
+    telefono: "+58 212 555 0400",
+    direccion: "Zona Industrial, Galpón 12, Barcelona",
+    categorias: ["Aseo Urbano"],
     empleados: 620,
     totalReportes: 1450,
     atendidos: 1448,
@@ -109,7 +126,7 @@ export default function Usuarios() {
     return (
       <div className="max-w-6xl mx-auto px-4 pb-10">
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex items-end justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
               Compañías Registradas
@@ -119,7 +136,20 @@ export default function Usuarios() {
               infraestructura.
             </p>
           </div>
-          <Button text="+ Nueva Empresa" variant_classes="btn-primary" />
+          <Button
+            icon={CirclePlus}
+            text="Empresa"
+            variant_classes="btn-primary"
+            onClick={() =>
+              navigate(ROUTES.DETALLES_USUARIO, {
+                state: {
+                  tipo: "empresa",
+                  origen: ROUTES.EMPRESAS,
+                  mode: "create",
+                },
+              })
+            }
+          />
         </div>
 
         {/* Stat cards */}
@@ -131,32 +161,6 @@ export default function Usuarios() {
             <span className="text-3xl font-bold text-gray-900">24</span>
             <span className="text-xs font-medium text-[#0040DF]">
               +2 este mes
-            </span>
-          </div>
-          <div className={statCardClass}>
-            <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">
-              Servicios Activos
-            </span>
-            <span className="text-3xl font-bold text-gray-900">142</span>
-            <span className="text-xs text-gray-400">Promedio global 5.9</span>
-          </div>
-          <div className={statCardClass}>
-            <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">
-              Tasa de Eficiencia
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-gray-900">94.2%</span>
-              <span className="text-sm font-semibold text-green-500">↑</span>
-            </div>
-            <span className="text-xs text-gray-400">Índice global</span>
-          </div>
-          <div className={statCardClass}>
-            <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">
-              Alertas Pendientes
-            </span>
-            <span className="text-3xl font-bold text-red-500">12</span>
-            <span className="text-xs font-medium text-red-400">
-              Acción requerida
             </span>
           </div>
         </div>
@@ -229,9 +233,13 @@ export default function Usuarios() {
           actions={[
             {
               label: "Ver Detalles",
-              onClick: () =>
+              onClick: (row) =>
                 navigate(ROUTES.DETALLES_USUARIO, {
-                  state: { tipo: "empresa", origen: ROUTES.EMPRESAS },
+                  state: {
+                    tipo: "empresa",
+                    origen: ROUTES.EMPRESAS,
+                    data: row,
+                  },
                 }),
             },
           ]}
@@ -250,7 +258,7 @@ export default function Usuarios() {
   return (
     <div className="max-w-6xl mx-auto px-4 pb-10">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-end justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
             Reportantes Registrados
@@ -259,7 +267,20 @@ export default function Usuarios() {
             Gestiona los usuarios que registran incidencias en la plataforma.
           </p>
         </div>
-        <Button text="+ Nuevo Reportante" variant_classes="btn-primary" />
+        <Button
+          icon={CirclePlus}
+          text="Reportante"
+          variant_classes="btn-primary"
+          onClick={() =>
+            navigate(ROUTES.DETALLES_USUARIO, {
+              state: {
+                tipo: "reportante",
+                origen: ROUTES.REPORTANTES,
+                mode: "create",
+              },
+            })
+          }
+        />
       </div>
 
       {/* Stat card */}
@@ -338,9 +359,13 @@ export default function Usuarios() {
         actions={[
           {
             label: "Ver Detalles",
-            onClick: () =>
+            onClick: (row) =>
               navigate(ROUTES.DETALLES_USUARIO, {
-                state: { tipo: "reportante", origen: ROUTES.REPORTANTES },
+                state: {
+                  tipo: "reportante",
+                  origen: ROUTES.REPORTANTES,
+                  data: row,
+                },
               }),
           },
         ]}

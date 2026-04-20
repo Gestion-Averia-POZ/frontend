@@ -387,7 +387,23 @@ export default function DashboardWorker() {
           actions={[
             {
               label: "Ver Detalles",
-              onClick: () => navigate(ROUTES.DETALLES_REPORTE),
+              onClick: (row) =>
+                navigate(ROUTES.DETALLES_REPORTE, {
+                  state: {
+                    reporte: {
+                      id: row.id,
+                      correlativo: `#URB-${String(row.id).padStart(4, "0")}`,
+                      empresa: "",
+                      servicio: row.servicio,
+                      prioridad: row.prioridad,
+                      estado: row.estado,
+                      sector: row.sector,
+                      responsable: "",
+                      creadoPor: "",
+                    },
+                    mode: "view",
+                  },
+                }),
             },
           ]}
           itemsPerPage={5}

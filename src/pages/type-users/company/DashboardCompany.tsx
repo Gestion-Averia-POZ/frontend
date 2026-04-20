@@ -187,7 +187,6 @@ export default function DashboardCompany() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-400 mt-4">Últimos 30 días</p>
         </div>
       </div>
 

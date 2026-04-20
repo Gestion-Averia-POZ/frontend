@@ -9,6 +9,8 @@ interface AuthUser {
   email: string;
   name: string;
   role: UserRole;
+  empresa?: string;
+  categorias?: string[];
 }
 
 interface AuthContextType {
@@ -46,6 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: found.email,
       name: found.name,
       role: found.role,
+      empresa: "empresa" in found ? (found.empresa as string) : undefined,
+      categorias: "categorias" in found ? ([...found.categorias] as string[]) : undefined,
     };
 
     setUser(authUser);
