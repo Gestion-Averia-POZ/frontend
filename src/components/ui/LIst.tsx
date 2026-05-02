@@ -24,7 +24,6 @@ interface ListProps<T extends { id: number | string }> {
   actions?: Action<T>[];
   itemsPerPage?: number;
   filters?: FilterConfig<T>[];
-  renderRowId?: (id: number | string) => React.ReactNode;
   initialFilterState?: FilterState;
   filterActions?: React.ReactNode;
 }
@@ -35,7 +34,6 @@ export default function List<T extends { id: number | string }>({
   actions,
   itemsPerPage = 10,
   filters,
-  renderRowId,
   initialFilterState,
   filterActions,
 }: ListProps<T>) {
@@ -100,7 +98,6 @@ export default function List<T extends { id: number | string }>({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50/50">
-              <th className={thClass}>ID</th>
               {columns.map((col) => (
                 <th key={String(col.key)} className={thClass}>
                   {col.header}
@@ -113,7 +110,7 @@ export default function List<T extends { id: number | string }>({
             {pageData.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + 2}
+                  colSpan={columns.length + 1}
                   className="px-6 py-8 text-center text-gray-400"
                 >
                   Sin resultados
@@ -125,9 +122,6 @@ export default function List<T extends { id: number | string }>({
                   key={row.id}
                   className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors"
                 >
-                  <td className="px-6 py-4" style={{ color: "#64748B" }}>
-                    {renderRowId ? renderRowId(row.id) : row.id}
-                  </td>
                   {columns.map((col) => (
                     <td
                       key={String(col.key)}

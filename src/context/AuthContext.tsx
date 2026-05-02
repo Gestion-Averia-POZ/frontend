@@ -1,22 +1,35 @@
-import { createContext, useContext, useState } from "react";
-import { MOCK_USERS, type UserRole } from "../constants";
+import { createContext, useContext, useEffect, useState } from "react";
+import { type UserRole } from "../constants";
+import { authService, type BackendRole } from "../services/auth.service";
+import { clearToken, saveToken } from "../services/api";
 
 // ─────────────────────────────────────────────
 // TIPOS
 // ─────────────────────────────────────────────
 
-interface AuthUser {
+export interface AuthUser {
+  id: string;
   email: string;
   name: string;
+  lastname: string;
   role: UserRole;
-  empresa?: string;
-  categorias?: string[];
 }
 
 interface AuthContextType {
   user: AuthUser | null;
-  login: (email: string, password: string) => AuthUser | null;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => void;
+}
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+
+const USER_KEY = "urbis_user";
+
+function toFrontendRole(role: BackendRole): UserRole {
+  return role.toLowerCase() as UserRole;
 }
 
 // ─────────────────────────────────────────────
@@ -27,41 +40,50 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 // ─────────────────────────────────────────────
 // PROVIDER
-// Envuelve la app y expone user, login y logout
 // ─────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  // true mientras se restaura la sesión desde localStorage al montar
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Busca las credenciales en MOCK_USERS.
-  // Devuelve el usuario si las credenciales son correctas, null si no.
-  // Cuando el backend esté listo, reemplaza esta lógica
-  // por una llamada a la API: POST /auth/login
-  function login(email: string, password: string): AuthUser | null {
-    const found = MOCK_USERS.find(
-      (u) => u.email === email && u.password === password
-    );
+  useEffect(() => {
+    const stored = localStorage.getItem(USER_KEY);
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored) as AuthUser);
+      } catch {
+        localStorage.removeItem(USER_KEY);
+      }
+    }
+    setIsLoading(false);
+  }, []);
 
-    if (!found) return null;
+  async function login(email: string, password: string): Promise<AuthUser> {
+    const res = await authService.login(email, password);
 
     const authUser: AuthUser = {
-      email: found.email,
-      name: found.name,
-      role: found.role,
-      empresa: "empresa" in found ? (found.empresa as string) : undefined,
-      categorias: "categorias" in found ? ([...found.categorias] as string[]) : undefined,
+      id: res.data.user.id,
+      email: res.data.user.email,
+      name: res.data.user.name,
+      lastname: res.data.user.lastname,
+      role: toFrontendRole(res.data.user.role),
     };
 
+    saveToken(res.data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(authUser));
     setUser(authUser);
     return authUser;
   }
 
   function logout() {
+    clearToken();
+    localStorage.removeItem(USER_KEY);
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -69,8 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 // ─────────────────────────────────────────────
 // HOOK — useAuth
-// Forma de consumir el contexto en cualquier
-// componente: const { user, login, logout } = useAuth()
 // ─────────────────────────────────────────────
 
 export function useAuth(): AuthContextType {

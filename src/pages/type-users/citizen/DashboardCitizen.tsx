@@ -1,73 +1,65 @@
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Map } from "../../../components/layout";
 import List from "../../../components/ui/LIst";
 import { useAuth } from "../../../context/AuthContext";
 import { ROUTES } from "../../../constants";
+import {
+  reportsService,
+  type BackendReport,
+} from "../../../services/reports.service";
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-
-const REPORTES_DATA = [
-  {
-    id: 1,
-    tipo: "Tubería Rota",
-    servicio: "Agua",
-    sector: "Unare",
-    estado: "Pendiente",
-    prioridad: "Alta",
-    fecha: "12 May, 2024",
-  },
-  {
-    id: 2,
-    tipo: "Obstrucción",
-    servicio: "Agua",
-    sector: "Sierra Parima",
-    estado: "En Revisión",
-    prioridad: "Media",
-    fecha: "15 May, 2024",
-  },
-  {
-    id: 3,
-    tipo: "Fuga",
-    servicio: "Agua",
-    sector: "Unare",
-    estado: "Atendido",
-    prioridad: "Alta",
-    fecha: "20 May, 2024",
-  },
-  {
-    id: 4,
-    tipo: "Corte de Suministro",
-    servicio: "Electricidad",
-    sector: "Centro",
-    estado: "Atendido",
-    prioridad: "Alta",
-    fecha: "22 May, 2024",
-  },
-  {
-    id: 5,
-    tipo: "Acumulación de Desechos",
-    servicio: "Aseo Urbano",
-    sector: "La Llanada",
-    estado: "Pendiente",
-    prioridad: "Baja",
-    fecha: "25 May, 2024",
-  },
-];
+// ── Badge config alineado con estados del backend ─────────────────────────────
 
 const ESTADO_CONFIG: Record<
   string,
   { bg: string; color: string; label: string }
 > = {
-  Pendiente: { bg: "#F1F5F9", color: "#64748B", label: "PENDIENTE" },
-  "En Revisión": { bg: "#FEF3C7", color: "#D97706", label: "EN REVISIÓN" },
-  Atendido: { bg: "#DCFCE7", color: "#16A34A", label: "ATENDIDO" },
+  PENDIENTE:  { bg: "#F1F5F9", color: "#64748B", label: "PENDIENTE"  },
+  EN_PROCESO: { bg: "#FEF3C7", color: "#D97706", label: "EN PROCESO" },
+  COMPLETADO: { bg: "#DCFCE7", color: "#16A34A", label: "COMPLETADO" },
+  CANCELADO:  { bg: "#FEE2E2", color: "#DC2626", label: "CANCELADO"  },
 };
 
 const PRIORIDAD_CONFIG: Record<string, { color: string }> = {
-  Alta: { color: "#EF4444" },
-  Media: { color: "#F97316" },
-  Baja: { color: "#22C55E" },
+  ALTA:  { color: "#EF4444" },
+  MEDIA: { color: "#F97316" },
+  BAJA:  { color: "#22C55E" },
 };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+type ReporteRow = {
+  id: string;
+  correlativo: string;
+  tipo: string;
+  servicio: string;
+  sector: string;
+  estado: string;
+  prioridad: string;
+  fecha: string;
+};
+
+function toRow(r: BackendReport): ReporteRow {
+  return {
+    id:          r.id,
+    correlativo: `#URB-${r.id.slice(0, 8).toUpperCase()}`,
+    tipo:        r.failureType?.name ?? "—",
+    servicio:    r.category.name,
+    sector:      r.neighborhood.name,
+    estado:      r.state.name,
+    prioridad:   r.priority,
+    fecha:       formatDate(r.createdAt),
+  };
+}
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
@@ -78,7 +70,7 @@ function StatCard({
   valueColor,
 }: {
   label: string;
-  value: string;
+  value: number;
   sub: string;
   valueColor?: string;
 }) {
@@ -104,6 +96,35 @@ export default function DashboardCitizen() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [reports, setReports] = useState<BackendReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!user?.id) return;
+    reportsService
+      .getByUser(user.id)
+      .then((res) => setReports(res.data.reports))
+      .catch((err) =>
+        setError(
+          err instanceof Error ? err.message : "Error al cargar reportes"
+        )
+      )
+      .finally(() => setLoading(false));
+  }, [user?.id]);
+
+  const rows = useMemo(() => reports.map(toRow), [reports]);
+
+  const stats = useMemo(
+    () => ({
+      total:      reports.length,
+      completados: reports.filter((r) => r.state.name === "COMPLETADO").length,
+      en_proceso:  reports.filter((r) => r.state.name === "EN_PROCESO").length,
+      pendientes:  reports.filter((r) => r.state.name === "PENDIENTE").length,
+    }),
+    [reports]
+  );
+
   return (
     <div className="max-w-6xl mx-auto px-4 pb-10">
       {/* Header */}
@@ -121,22 +142,26 @@ export default function DashboardCitizen() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Reportes" value="5" sub="Reportes enviados" />
+        <StatCard
+          label="Total Reportes"
+          value={stats.total}
+          sub="Reportes enviados"
+        />
         <StatCard
           label="Atendidos"
-          value="2"
+          value={stats.completados}
           sub="Resueltos satisfactoriamente"
           valueColor="#16A34A"
         />
         <StatCard
           label="En Revisión"
-          value="1"
+          value={stats.en_proceso}
           sub="En proceso de atención"
           valueColor="#D97706"
         />
         <StatCard
           label="Pendientes"
-          value="2"
+          value={stats.pendientes}
           sub="Esperando atención"
           valueColor="#EF4444"
         />
@@ -155,112 +180,142 @@ export default function DashboardCitizen() {
       {/* Reports list */}
       <section>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Mis Reportes</h2>
-        <List
-          data={REPORTES_DATA}
-          filters={[
-            { field: "estado", label: "Estado", type: "checkbox" },
-            { field: "prioridad", label: "Prioridad", type: "checkbox" },
-            { field: "tipo", label: "Tipo de Avería", type: "checkbox" },
-            { field: "sector", label: "Buscar sector", type: "text" },
-          ]}
-          renderRowId={(id) => (
-            <span className="font-mono text-xs text-gray-400">
-              #URB-{String(id).padStart(4, "0")}
-            </span>
-          )}
-          columns={[
-            {
-              key: "tipo",
-              header: "Tipo de Avería",
-              render: (row) => (
-                <span className="font-semibold text-gray-900">{row.tipo}</span>
-              ),
-            },
-            {
-              key: "servicio",
-              header: "Servicio",
-              render: (row) => (
-                <span className="text-gray-700">{row.servicio}</span>
-              ),
-            },
-            {
-              key: "fecha",
-              header: "Fecha",
-              render: (row) => (
-                <span className="text-gray-500">{row.fecha}</span>
-              ),
-            },
-            {
-              key: "sector",
-              header: "Sector",
-              render: (row) => (
-                <span className="text-gray-500">{row.sector}</span>
-              ),
-            },
-            {
-              key: "estado",
-              header: "Estado",
-              render: (row) => {
-                const s = ESTADO_CONFIG[row.estado] ?? {
-                  bg: "#F1F5F9",
-                  color: "#64748B",
-                  label: row.estado,
-                };
-                return (
-                  <span
-                    className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                    style={{ backgroundColor: s.bg, color: s.color }}
-                  >
-                    {s.label}
-                  </span>
-                );
+
+        {loading && (
+          <p className="text-sm text-gray-400 py-8 text-center">
+            Cargando reportes...
+          </p>
+        )}
+
+        {!loading && error && (
+          <p className="text-sm text-red-500 py-8 text-center">{error}</p>
+        )}
+
+        {!loading && !error && rows.length === 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">
+            <p className="text-gray-500 font-medium">
+              No tienes reportes creados
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Cuando crees un reporte, aparecerá aquí.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && rows.length > 0 && (
+          <List
+            data={rows}
+            filters={[
+              { field: "estado",    label: "Estado",         type: "checkbox" },
+              { field: "prioridad", label: "Prioridad",      type: "checkbox" },
+              { field: "servicio",  label: "Servicio",       type: "checkbox" },
+              { field: "sector",    label: "Buscar sector",  type: "text"     },
+            ]}
+            columns={[
+              {
+                key: "correlativo",
+                header: "N° Reporte",
+                render: (row) => (
+                  <span className="font-mono text-xs text-gray-400">{row.correlativo}</span>
+                ),
               },
-            },
-            {
-              key: "prioridad",
-              header: "Prioridad",
-              render: (row) => {
-                const s = PRIORIDAD_CONFIG[row.prioridad] ?? {
-                  color: "#64748B",
-                };
-                return (
-                  <div className="flex items-center gap-1.5">
-                    <div
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: s.color }}
-                    />
-                    <span className="font-medium" style={{ color: s.color }}>
-                      {row.prioridad}
+              {
+                key: "servicio",
+                header: "Servicio",
+                render: (row) => (
+                  <span className="font-semibold text-gray-900">{row.servicio}</span>
+                ),
+              },
+              {
+                key: "tipo",
+                header: "Tipo de Avería",
+                render: (row) => (
+                  <span className="text-gray-700">{row.tipo}</span>
+                ),
+              },
+              {
+                key: "fecha",
+                header: "Fecha",
+                render: (row) => (
+                  <span className="text-gray-500">{row.fecha}</span>
+                ),
+              },
+              {
+                key: "sector",
+                header: "Sector",
+                render: (row) => (
+                  <span className="text-gray-500">{row.sector}</span>
+                ),
+              },
+              {
+                key: "estado",
+                header: "Estado",
+                render: (row) => {
+                  const s = ESTADO_CONFIG[row.estado] ?? {
+                    bg: "#F1F5F9",
+                    color: "#64748B",
+                    label: row.estado,
+                  };
+                  return (
+                    <span
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                      style={{ backgroundColor: s.bg, color: s.color }}
+                    >
+                      {s.label}
                     </span>
-                  </div>
-                );
+                  );
+                },
               },
-            },
-          ]}
-          actions={[
-            {
-              label: "Ver Detalles",
-              onClick: (row) =>
-                navigate(ROUTES.DETALLES_REPORTE, {
-                  state: {
-                    reporte: {
-                      id: row.id,
-                      correlativo: `#URB-${String(row.id).padStart(4, "0")}`,
-                      empresa: "",
-                      servicio: row.servicio,
-                      prioridad: row.prioridad,
-                      estado: row.estado,
-                      sector: row.sector,
-                      responsable: "",
-                      creadoPor: "",
+              {
+                key: "prioridad",
+                header: "Prioridad",
+                render: (row) => {
+                  const s = PRIORIDAD_CONFIG[row.prioridad] ?? { color: "#64748B" };
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: s.color }}
+                      />
+                      <span className="font-medium" style={{ color: s.color }}>
+                        {row.prioridad}
+                      </span>
+                    </div>
+                  );
+                },
+              },
+            ]}
+            actions={[
+              {
+                label: "Ver Detalles",
+                onClick: (row) => {
+                  const r = reports.find((rep) => rep.id === row.id);
+                  if (!r) return;
+                  navigate(ROUTES.DETALLES_REPORTE, {
+                    state: {
+                      mode: "view",
+                      reporte: {
+                        id:          r.id,
+                        correlativo: `#URB-${r.id.slice(0, 8).toUpperCase()}`,
+                        empresa:     r.company?.name ?? "—",
+                        servicio:    r.category.name,
+                        tipoAveria:  r.failureType?.name ?? "—",
+                        prioridad:   r.priority,
+                        estado:      r.state.name,
+                        sector:      r.neighborhood?.name ?? "—",
+                        responsable: r.assignedManager
+                          ? `${r.assignedManager.name} ${r.assignedManager.lastname}`
+                          : "",
+                        creadoPor:   `${r.user.name} ${r.user.lastname}`,
+                      },
                     },
-                    mode: "view",
-                  },
-                }),
-            },
-          ]}
-          itemsPerPage={5}
-        />
+                  });
+                },
+              },
+            ]}
+            itemsPerPage={5}
+          />
+        )}
       </section>
     </div>
   );

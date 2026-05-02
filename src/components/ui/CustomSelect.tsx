@@ -6,6 +6,7 @@ interface CustomSelectProps {
   options: string[];
   value?: string;
   onChange?: (value: string) => void;
+  disabled?: boolean;
 }
 
 export default function CustomSelect({
@@ -13,6 +14,7 @@ export default function CustomSelect({
   options,
   value,
   onChange,
+  disabled = false,
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(value ?? "");
@@ -26,18 +28,19 @@ export default function CustomSelect({
   return (
     <div className="relative">
       {/* Backdrop para cerrar al hacer click fuera */}
-      {open && (
+      {open && !disabled && (
         <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
       )}
 
       {/* Trigger */}
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm cursor-pointer transition-colors"
+        onClick={() => !disabled && setOpen((o) => !o)}
+        className="flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm transition-colors"
         style={{
           backgroundColor: "#F0F4FF",
           color: selected ? "#1E293B" : "#94A3B8",
+          cursor: disabled ? "default" : "pointer",
         }}
       >
         <span>{selected || placeholder}</span>
@@ -49,7 +52,7 @@ export default function CustomSelect({
       </button>
 
       {/* Panel de opciones */}
-      {open && (
+      {open && !disabled && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 p-1.5">
           {options.map((opt) => (
             <button

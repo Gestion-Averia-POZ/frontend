@@ -8,6 +8,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Zap, Droplet, Trash2, MapPin, Check, X, Locate } from "lucide-react";
 import { ROUTES } from "../../constants";
 import { useAuth } from "../../context/AuthContext";
+import { reportsService } from "../../services/reports.service";
+import type { BackendReport } from "../../services/reports.service";
 
 // ─────────────────────────────────────────────
 // TIPOS
@@ -16,17 +18,15 @@ import { useAuth } from "../../context/AuthContext";
 type TipoServicio = "luz" | "agua" | "aseo";
 type Filtro = "todos" | TipoServicio;
 
-interface Marcador {
-  id: number;
+interface SectorData {
+  name: string;
   coords: [number, number];
   tipo: TipoServicio;
-  label: string;
-  sector: string;
   reportes: { total: number; alta: number; media: number; baja: number };
 }
 
 interface TooltipState {
-  marker: Marcador;
+  marker: SectorData;
   x: number;
   y: number;
 }
@@ -63,7 +63,6 @@ const SERVICIO_TO_FILTRO: Record<string, Filtro> = {
   "Aseo Urbano": "aseo",
 };
 
-// Mapea tipo interno al valor de `servicio` en Reportes DATA
 const TIPO_TO_SERVICIO: Record<TipoServicio, string> = {
   luz:  "Electricidad",
   agua: "Agua",
@@ -71,112 +70,72 @@ const TIPO_TO_SERVICIO: Record<TipoServicio, string> = {
 };
 
 // ─────────────────────────────────────────────
-// MARCADORES — conteos alineados con Reportes DATA
+// HELPERS DE DATOS REALES
 // ─────────────────────────────────────────────
 
-const MARCADORES: Marcador[] = [
-  {
-    id: 1,
-    coords: [-62.753, 8.281],
-    tipo: "luz",
-    label: "Avería eléctrica – UNARE",
-    sector: "Unare",
-    reportes: { total: 6, alta: 3, media: 2, baja: 1 },
-  },
-  {
-    id: 2,
-    coords: [-62.737, 8.286],
-    tipo: "luz",
-    label: "Avería eléctrica – ALTA VISTA",
-    sector: "Sierra Parima",
-    reportes: { total: 2, alta: 1, media: 1, baja: 0 },
-  },
-  {
-    id: 3,
-    coords: [-62.705, 8.296],
-    tipo: "luz",
-    label: "Avería eléctrica – CASTILLITO",
-    sector: "Centro",
-    reportes: { total: 3, alta: 1, media: 1, baja: 1 },
-  },
-  {
-    id: 4,
-    coords: [-62.667, 8.295],
-    tipo: "luz",
-    label: "Avería eléctrica – TANATA",
-    sector: "La Llanada",
-    reportes: { total: 2, alta: 1, media: 0, baja: 1 },
-  },
-  {
-    id: 5,
-    coords: [-62.721, 8.292],
-    tipo: "agua",
-    label: "Fuga de agua – ALTA VISTA",
-    sector: "Sierra Parima",
-    reportes: { total: 3, alta: 1, media: 1, baja: 1 },
-  },
-  {
-    id: 6,
-    coords: [-62.695, 8.303],
-    tipo: "agua",
-    label: "Fuga de agua – CASTILLITO",
-    sector: "Centro",
-    reportes: { total: 2, alta: 1, media: 1, baja: 0 },
-  },
-  {
-    id: 7,
-    coords: [-62.675, 8.309],
-    tipo: "aseo",
-    label: "Desechos – COMRUSTO",
-    sector: "Unare",
-    reportes: { total: 3, alta: 2, media: 0, baja: 1 },
-  },
-];
+function categoryToFiltro(catName: string): TipoServicio | null {
+  const n = catName.toLowerCase();
+  if (n.includes("electric") || n === "luz") return "luz";
+  if (n.includes("agua")) return "agua";
+  if (n.includes("aseo") || n.includes("urban") || n.includes("basura")) return "aseo";
+  return null;
+}
 
-// ─────────────────────────────────────────────
-// PUNTOS DE CALOR
-// ─────────────────────────────────────────────
+function buildSectors(reports: BackendReport[], filtro: Filtro): SectorData[] {
+  const filtered =
+    filtro === "todos"
+      ? reports
+      : reports.filter((r) => categoryToFiltro(r.category.name) === filtro);
 
-const PUNTOS_CALOR: Array<{
-  coords: [number, number];
-  intensidad: number;
-  tipo: TipoServicio;
-}> = [
-  { coords: [-62.756, 8.28],  intensidad: 10, tipo: "luz" },
-  { coords: [-62.753, 8.283], intensidad: 9,  tipo: "luz" },
-  { coords: [-62.75,  8.278], intensidad: 8,  tipo: "luz" },
-  { coords: [-62.759, 8.285], intensidad: 7,  tipo: "luz" },
-  { coords: [-62.747, 8.281], intensidad: 6,  tipo: "luz" },
-  { coords: [-62.738, 8.29],  intensidad: 8,  tipo: "luz"  },
-  { coords: [-62.735, 8.293], intensidad: 7,  tipo: "luz"  },
-  { coords: [-62.741, 8.287], intensidad: 6,  tipo: "luz"  },
-  { coords: [-62.722, 8.292], intensidad: 7,  tipo: "agua" },
-  { coords: [-62.718, 8.289], intensidad: 5,  tipo: "agua" },
-  { coords: [-62.725, 8.295], intensidad: 6,  tipo: "agua" },
-  { coords: [-62.706, 8.296], intensidad: 9,  tipo: "luz"  },
-  { coords: [-62.711, 8.299], intensidad: 7,  tipo: "luz"  },
-  { coords: [-62.7,   8.293], intensidad: 6,  tipo: "luz"  },
-  { coords: [-62.696, 8.304], intensidad: 5,  tipo: "agua" },
-  { coords: [-62.693, 8.301], intensidad: 4,  tipo: "agua" },
-  { coords: [-62.677, 8.309], intensidad: 10, tipo: "aseo" },
-  { coords: [-62.673, 8.306], intensidad: 8,  tipo: "aseo" },
-  { coords: [-62.681, 8.312], intensidad: 9,  tipo: "aseo" },
-  { coords: [-62.67,  8.308], intensidad: 7,  tipo: "aseo" },
-  { coords: [-62.668, 8.291], intensidad: 9,  tipo: "luz" },
-  { coords: [-62.665, 8.288], intensidad: 8,  tipo: "luz" },
-  { coords: [-62.672, 8.294], intensidad: 7,  tipo: "luz" },
-  { coords: [-62.661, 8.29],  intensidad: 6,  tipo: "luz" },
-];
+  const grouped: Record<string, { reports: BackendReport[]; lats: number[]; lngs: number[] }> = {};
 
-function buildGeoJSON(filtro: Filtro) {
-  const features = PUNTOS_CALOR.filter(
-    (p) => filtro === "todos" || p.tipo === filtro,
-  ).map((p) => ({
-    type: "Feature" as const,
-    properties: { intensidad: p.intensidad },
-    geometry: { type: "Point" as const, coordinates: p.coords },
-  }));
-  return { type: "FeatureCollection" as const, features };
+  filtered.forEach((r) => {
+    if (r.latitude === undefined || r.longitude === undefined) return;
+    const key = r.neighborhood.name;
+    if (!grouped[key]) grouped[key] = { reports: [], lats: [], lngs: [] };
+    const g = grouped[key];
+    g.reports.push(r);
+    g.lats.push(r.latitude);
+    g.lngs.push(r.longitude);
+  });
+
+  return Object.entries(grouped).map(([name, g]) => {
+    const avgLat = g.lats.reduce((a, b) => a + b, 0) / g.lats.length;
+    const avgLng = g.lngs.reduce((a, b) => a + b, 0) / g.lngs.length;
+
+    const tipoCounts: Record<TipoServicio, number> = { luz: 0, agua: 0, aseo: 0 };
+    g.reports.forEach((r) => {
+      const t = categoryToFiltro(r.category.name);
+      if (t) tipoCounts[t]++;
+    });
+    const dominant =
+      filtro !== "todos"
+        ? filtro
+        : ((Object.entries(tipoCounts).sort((a, b) => b[1] - a[1])[0]?.[0] as TipoServicio) || "luz");
+
+    return {
+      name,
+      coords: [avgLng, avgLat] as [number, number],
+      tipo: dominant,
+      reportes: {
+        total: g.reports.length,
+        alta:  g.reports.filter((r) => r.priority === "ALTA").length,
+        media: g.reports.filter((r) => r.priority === "MEDIA").length,
+        baja:  g.reports.filter((r) => r.priority === "BAJA").length,
+      },
+    };
+  });
+}
+
+function buildRealGeoJSON(sectors: SectorData[]) {
+  return {
+    type: "FeatureCollection" as const,
+    features: sectors.map((s) => ({
+      type: "Feature" as const,
+      properties: { intensidad: Math.min(s.reportes.total, 10) },
+      geometry: { type: "Point" as const, coordinates: s.coords },
+    })),
+  };
 }
 
 // Crea un elemento DOM con ícono MapPin para modos de pin
@@ -203,7 +162,6 @@ function createPinEl(color: string): { el: HTMLDivElement; root: Root } {
 export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  // Citizen en modo dashboard (ni editPin ni pinCoords): mapa de solo lectura sin tooltip
   const isReadonly = user?.role === "citizen" && !editPin && !pinCoords;
   const isReadonlyRef = useRef(isReadonly);
 
@@ -215,6 +173,9 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
   const filtroActivo: Filtro = servicio
     ? (SERVICIO_TO_FILTRO[servicio] ?? "todos")
     : filtroActual;
+
+  // Real reports data
+  const [allReports, setAllReports] = useState<BackendReport[]>([]);
 
   // Cluster tooltip
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -230,7 +191,6 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
   const pendingRootRef = useRef<Root | null>(null);
   const confirmedMarkerRef = useRef<maplibregl.Marker | null>(null);
   const confirmedRootRef = useRef<Root | null>(null);
-  // Root exclusivo del pin de vista (pinCoords) — no lo toca el efecto de confirmedPin
   const viewPinRootRef = useRef<Root | null>(null);
 
   // Refs estables para leer desde dentro del useEffect de inicialización
@@ -294,7 +254,7 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
 
       mapRef.current.setMaxBounds(PZO_BOUNDS);
 
-      // ── Modo edición de pin: mapa limpio, solo listener de click ──
+      // ── Modo edición de pin ──
       if (editPinRef.current) {
         mapRef.current.on("click", (e) => {
           const containerRect = mapContainerRef.current!.getBoundingClientRect();
@@ -310,10 +270,10 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
         return;
       }
 
-      // ── Modo normal: heatmap + marcadores cluster ──
+      // ── Modo dashboard: fuente vacía + heatmap ──
       mapRef.current.addSource("averias-source", {
         type: "geojson",
-        data: buildGeoJSON("todos"),
+        data: { type: "FeatureCollection", features: [] },
       });
 
       mapRef.current.addLayer({
@@ -336,38 +296,6 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
         },
       });
 
-      MARCADORES.forEach((m) => {
-        const { Icon, color } = TIPOS_SERVICIO[m.tipo];
-        const el = document.createElement("div");
-        el.title = m.label;
-        Object.assign(el.style, {
-          width: "34px",
-          height: "34px",
-          background: color,
-          borderRadius: "8px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 3px 10px rgba(0,0,0,0.35)",
-          cursor: "pointer",
-        });
-        const root = createRoot(el);
-        root.render(<Icon size={18} color="white" strokeWidth={2.2} />);
-
-        el.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (isReadonlyRef.current) return;
-          const rect = el.getBoundingClientRect();
-          setTooltip({ marker: m, x: rect.left + rect.width / 2, y: rect.top });
-        });
-
-        const marker = new maplibregl.Marker({ element: el })
-          .setLngLat(m.coords)
-          .addTo(mapRef.current!);
-
-        marcadoresRef.current.push({ marker, tipo: m.tipo, root });
-      });
-
       mapRef.current.resize();
       setMapLoaded(true);
     });
@@ -385,16 +313,65 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
     };
   }, []);
 
-  // ── Filtrado heatmap + visibilidad marcadores ──
+  // ── Fetch reports cuando el mapa carga en modo dashboard ──
   useEffect(() => {
-    if (!mapRef.current || !mapLoaded || pinCoordsRef.current) return;
-    const source = mapRef.current.getSource("averias-source") as maplibregl.GeoJSONSource;
-    source?.setData(buildGeoJSON(filtroActivo));
-    marcadoresRef.current.forEach(({ marker, tipo }) => {
-      const visible = filtroActivo === "todos" || filtroActivo === tipo;
-      marker.getElement().style.display = visible ? "flex" : "none";
+    if (!mapLoaded || editPin || pinCoords) return;
+    reportsService
+      .getAll({ limit: 1000 })
+      .then((res) => setAllReports(res.data.reports))
+      .catch(console.error);
+  }, [mapLoaded]);
+
+  // ── Actualiza heatmap + marcadores cuando cambian reportes o filtro ──
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || editPin || pinCoords) return;
+
+    const sectors = buildSectors(allReports, filtroActivo);
+
+    // Actualizar fuente del heatmap
+    const source = mapRef.current.getSource("averias-source") as maplibregl.GeoJSONSource | undefined;
+    source?.setData(buildRealGeoJSON(sectors));
+
+    // Limpiar marcadores anteriores
+    marcadoresRef.current.forEach(({ marker, root }) => { marker.remove(); root.unmount(); });
+    marcadoresRef.current = [];
+
+    // Cerrar tooltip abierto (sectores cambiaron)
+    setTooltip(null);
+
+    // Crear nuevos marcadores por sector
+    sectors.forEach((s) => {
+      const { Icon, color } = TIPOS_SERVICIO[s.tipo];
+      const el = document.createElement("div");
+      el.title = s.name;
+      Object.assign(el.style, {
+        width: "34px",
+        height: "34px",
+        background: color,
+        borderRadius: "8px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: "0 3px 10px rgba(0,0,0,0.35)",
+        cursor: "pointer",
+      });
+      const root = createRoot(el);
+      root.render(<Icon size={18} color="white" strokeWidth={2.2} />);
+
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (isReadonlyRef.current) return;
+        const rect = el.getBoundingClientRect();
+        setTooltip({ marker: s, x: rect.left + rect.width / 2, y: rect.top });
+      });
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat(s.coords)
+        .addTo(mapRef.current!);
+
+      marcadoresRef.current.push({ marker, tipo: s.tipo, root });
     });
-  }, [filtroActivo, mapLoaded]);
+  }, [allReports, filtroActivo, mapLoaded]);
 
   // ── Marcador pendiente en el mapa ──────────────
   useEffect(() => {
@@ -414,6 +391,31 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
     pendingMarkerRef.current = marker;
     pendingRootRef.current = root;
   }, [pendingPin, mapLoaded]);
+
+  // ── Pin de vista: reacciona si pinCoords llega después del mount (async) ──
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || !pinCoords) return;
+
+    if (mapRef.current.getSource("averias-source")) {
+      if (mapRef.current.getLayer("averias-heat")) {
+        mapRef.current.removeLayer("averias-heat");
+      }
+      mapRef.current.removeSource("averias-source");
+    }
+    marcadoresRef.current.forEach(({ marker }) => {
+      marker.getElement().style.display = "none";
+    });
+
+    viewPinRootRef.current?.unmount();
+
+    const { el, root } = createPinEl("#0040DF");
+    new maplibregl.Marker({ element: el, anchor: "bottom" })
+      .setLngLat(pinCoords)
+      .addTo(mapRef.current!);
+    viewPinRootRef.current = root;
+
+    mapRef.current.flyTo({ center: pinCoords, zoom: 16 });
+  }, [pinCoords, mapLoaded]);
 
   // ── Marcador confirmado en el mapa ────────────
   useEffect(() => {
@@ -462,9 +464,7 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
         mapRef.current?.flyTo({ center: coords, zoom: 16 });
         onPinChangeRef.current?.(coords);
       },
-      () => {
-        // Geolocalización denegada — sin acción visible
-      },
+      () => {},
     );
   }
 
@@ -476,7 +476,7 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
 
   return (
     <div className="relative w-full h-full rounded-xl shadow-lg">
-      {/* Mapa — overflow-hidden aquí para recortar las tiles */}
+      {/* Mapa */}
       <div
         ref={mapContainerRef}
         className="absolute inset-0 w-full h-full overflow-hidden rounded-xl"
@@ -579,7 +579,7 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
               }}
             />
             <p className="text-xs font-bold text-gray-900 mb-1 leading-snug">
-              {tooltip.marker.label}
+              {tooltip.marker.name}
             </p>
             <p className="text-[11px] text-gray-400 mb-2">
               {tooltip.marker.reportes.total} reportes concentrados
@@ -597,12 +597,13 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
             </div>
             <button
               onClick={() => {
+                const s = tooltip.marker;
                 setTooltip(null);
                 navigate(ROUTES.REPORTES, {
                   state: {
                     initialFilterState: {
-                      text: { sector: tooltip.marker.sector },
-                      checkbox: { servicio: [TIPO_TO_SERVICIO[tooltip.marker.tipo]] },
+                      text: { sector: s.name },
+                      checkbox: { servicio: [TIPO_TO_SERVICIO[s.tipo]] },
                     },
                   },
                 });

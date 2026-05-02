@@ -5,6 +5,7 @@ interface InputProps {
   typeInput: string;
   placeholder?: string;
   icon?: LucideIcon;
+  disabled?: boolean;
   // Props para input controlado (opcional — si no se pasan, el input funciona sin estado)
   value?: string;
   onChange?: (value: string) => void;
@@ -15,6 +16,7 @@ export default function Input({
   typeInput,
   placeholder,
   classes,
+  disabled,
   value,
   onChange,
 }: InputProps) {
@@ -23,8 +25,9 @@ export default function Input({
       {Icon && <Icon />}
       <input
         type={typeInput}
-        className={`input grow ${classes}`}
+        className={`input grow ${classes} ${disabled ? "input-disabled opacity-60 cursor-not-allowed" : ""}`}
         placeholder={placeholder}
+        disabled={disabled}
         value={value}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       />

@@ -5,6 +5,7 @@ interface ButtonProps {
   text: string;
   icon?: LucideIcon;
   onClick?: () => void;
+  disabled?: boolean;
 }
 
 export default function Button({
@@ -12,11 +13,12 @@ export default function Button({
   text,
   icon: Icon,
   onClick,
+  disabled,
 }: ButtonProps) {
   const similar = "btn rounded-xl btn-xs sm:btn-sm md:btn-md";
 
   return (
-    <button className={similar + " " + variant_classes} onClick={onClick}>
+    <button className={similar + " " + variant_classes} onClick={onClick} disabled={disabled}>
       {Icon && <Icon />}
       {text}
     </button>

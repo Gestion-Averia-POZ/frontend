@@ -7,24 +7,28 @@ import { useAuth } from "../../context/AuthContext";
 
 export default function Login() {
   const { login } = useAuth();
-  const navigate   = useNavigate();
+  const navigate = useNavigate();
 
-  const [email,    setEmail]    = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [error,    setError]    = useState("");
+  const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    const user = login(email, password);
-
-    if (!user) {
-      setError("Correo o contraseña incorrectos.");
-      return;
+    try {
+      const user = await login(email, password);
+      navigate(DASHBOARD_ROUTES[user.role]);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Correo o contraseña incorrectos."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    navigate(DASHBOARD_ROUTES[user.role]);
   }
 
   return (
@@ -41,7 +45,7 @@ export default function Login() {
 
         <Form
           noBorder
-          textButton="Iniciar Sesión"
+          textButton={loading ? "Iniciando sesión..." : "Iniciar Sesión"}
           submitClasses="w-full h-[48px] text-base"
           submitIcon={Send}
           onSubmit={handleSubmit}

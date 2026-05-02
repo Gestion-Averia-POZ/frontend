@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ROUTES } from "../constants";
 import {
   Info,
   MapPin,
@@ -7,15 +8,14 @@ import {
   ImageIcon,
   Camera,
   CalendarDays,
-  UserCircle2,
-  History,
-  ArrowRight,
   Settings,
 } from "lucide-react";
 import { Map } from "../components/layout";
 import { Button } from "../components/ui";
 import CustomSelect from "../components/ui/CustomSelect";
 import { useAuth } from "../context/AuthContext";
+import { catalogService } from "../services/catalog.service";
+import { reportsService } from "../services/reports.service";
 
 // ── Reutilizable: etiqueta + campo ──────────────
 function Field({
@@ -67,66 +67,16 @@ const TIPOS_POR_CATEGORIA: Record<string, string[]> = {
 
 const CATEGORIAS = Object.keys(TIPOS_POR_CATEGORIA);
 
-// ── Tipos de log ─────────────────────────────────
-type LogEntry = {
-  id: number;
-  fecha: string;
-  usuario: string;
-  campo: string;
-  valorAnterior: string;
-  valorNuevo: string;
-};
-
-type Snapshot = {
-  empresa: string;
-  categoria: string;
-  tipoAveria: string;
-  estado: string;
-  descripcion: string;
-  calle: string;
-  vecindario: string;
-  responsable: string;
-};
-
-const SNAPSHOT_VACIO: Snapshot = {
-  empresa: "",
-  categoria: "",
-  tipoAveria: "",
-  estado: "",
-  descripcion: "",
-  calle: "",
-  vecindario: "",
-  responsable: "",
-};
-
-const LABELS: Record<keyof Snapshot, string> = {
-  empresa: "Empresa",
-  categoria: "Categoría",
-  tipoAveria: "Tipo de Avería",
-  estado: "Estado",
-  descripcion: "Descripción",
-  calle: "Calle",
-  vecindario: "Vecindario / Barrio",
-  responsable: "Responsable Asignado",
-};
-
-// Coordenadas aproximadas por sector para el pin de vista
-const SECTOR_COORDS: Record<string, [number, number]> = {
-  "Unare":         [-62.753, 8.281],
-  "Sierra Parima": [-62.737, 8.286],
-  "La Llanada":    [-62.667, 8.295],
-  "Centro":        [-62.705, 8.296],
-};
-
 function formatLat(lat: number) { return `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? "N" : "S"}`; }
 function formatLng(lng: number) { return `${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? "E" : "W"}`; }
 
 // ── Tipo del reporte que llega por navigate state ─
 type ReporteState = {
-  id: number;
+  id: string;
   correlativo: string;
   empresa: string;
   servicio: string;
+  tipoAveria: string;
   prioridad: string;
   estado: string;
   sector: string;
@@ -148,8 +98,12 @@ function mapServicioToCategoria(servicio: string): string {
 
 function mapEstadoToForm(estado: string): string {
   const MAP: Record<string, string> = {
-    Revisión: "En Proceso",
-    Resuelto: "Completado",
+    Revisión:   "En Proceso",
+    Resuelto:   "Completado",
+    PENDIENTE:  "Pendiente",
+    EN_PROCESO: "En Proceso",
+    COMPLETADO: "Completado",
+    CANCELADO:  "Cancelado",
   };
   return MAP[estado] ?? estado;
 }
@@ -158,6 +112,7 @@ function mapEstadoToForm(estado: string): string {
 export default function DetallesReporte() {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const state = location.state as LocationState;
 
   const reporte = state?.reporte ?? null;
@@ -166,17 +121,18 @@ export default function DetallesReporte() {
   const isAdmin = user?.role === "admin";
   const isCitizen = user?.role === "citizen";
 
-  // Coords para el pin del mapa
-  const reportePinCoords = reporte?.sector ? SECTOR_COORDS[reporte.sector] : undefined;
   const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
+  const [reportePinCoords, setReportePinCoords] = useState<[number, number] | undefined>(undefined);
 
   // ro(field): true → campo de solo lectura
-  const ro = (field: string) => isWorker && field !== "estado";
+  const ro = (field: string) => isViewMode || (isWorker && field !== "estado");
 
   const [imagenes, setImagenes] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [estadoRegistro, setEstadoRegistro] = useState<"archivado" | "cancelado" | null>(null);
+  const [estadoRegistro, setEstadoRegistro] = useState<"cancelado" | null>(
+    reporte?.estado?.toUpperCase() === "CANCELADO" ? "cancelado" : null
+  );
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -189,105 +145,157 @@ export default function DetallesReporte() {
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [dropdownOpen]);
 
+  const [showErrors, setShowErrors] = useState(false);
+
+  // ── Catalog data (create mode) ────────────────
+  const [companiesOptions, setCompaniesOptions] = useState<string[]>([]);
+  const [companiesMap, setCompaniesMap]           = useState<Record<string, string>>({});
+  const [categoriesOptions, setCategoriesOptions] = useState<string[]>([]);
+  const [categoriesMap, setCategoriesMap]         = useState<Record<string, string>>({});
+  const [failureTypesOptions, setFailureTypesOptions] = useState<string[]>([]);
+  const [failureTypesMap, setFailureTypesMap]     = useState<Record<string, number>>({});
+  const [categoriaId, setCategoriaId] = useState("");
+
+  // Load categories once on create mode
+  useEffect(() => {
+    if (isViewMode) return;
+    catalogService.getCategories().then((categoriesRes) => {
+      const cats = categoriesRes.data.categories;
+      setCategoriesOptions(cats.map((c) => c.name));
+      const catMap: Record<string, string> = {};
+      cats.forEach((c) => { catMap[c.name] = c.id; });
+      setCategoriesMap(catMap);
+    });
+  }, []);
+
+  // Fetch failure types when a category is selected
+  useEffect(() => {
+    if (!categoriaId) return;
+    catalogService
+      .getFailureTypesByCategory(categoriaId)
+      .then((res) => {
+        const fts = res.data.failureTypes;
+        setFailureTypesOptions(fts.map((ft) => ft.name));
+        const ftMap: Record<string, number> = {};
+        fts.forEach((ft) => { ftMap[ft.name] = ft.id; });
+        setFailureTypesMap(ftMap);
+      });
+  }, [categoriaId]);
+
+  function handleCategoriaChange(name: string) {
+    setCategoria(name);
+    const id = categoriesMap[name] ?? "";
+    setCategoriaId(id);
+    setTipoAveria("");
+    setEmpresa("");
+    setFailureTypesOptions([]);
+    setFailureTypesMap({});
+    setCompaniesOptions([]);
+    setCompaniesMap({});
+    if (name) {
+      catalogService.getCompaniesByCategory(name).then((res) => {
+        const companies = res.data.companies;
+        setCompaniesOptions(companies.map((c) => c.name));
+        const compMap: Record<string, string> = {};
+        companies.forEach((c) => { compMap[c.name] = c.id; });
+        setCompaniesMap(compMap);
+      });
+    }
+  }
+
   // ── Correlativo ───────────────────────────────
-  const [correlativo, setCorrelativo] = useState(reporte?.correlativo ?? "");
+  const [correlativo] = useState(reporte?.correlativo ?? "");
 
   // ── Estado de cada campo editable ──────────────
   const [categoria, setCategoria] = useState(
     reporte ? mapServicioToCategoria(reporte.servicio) : "",
   );
-  const [tipoAveria, setTipoAveria] = useState("");
+  const [tipoAveria, setTipoAveria] = useState(reporte?.tipoAveria ?? "");
   const [estado, setEstado] = useState(
-    reporte ? mapEstadoToForm(reporte.estado) : "",
+    reporte ? mapEstadoToForm(reporte.estado) : "En Proceso",
   );
   const [descripcion, setDescripcion] = useState("");
   const [calle, setCalle] = useState("");
   const [vecindario, setVecindario] = useState(reporte?.sector ?? "");
+  const [viewCreatedAt, setViewCreatedAt] = useState("");
   const [responsable, setResponsable] = useState(reporte?.responsable ?? "");
   const [empresa, setEmpresa] = useState(reporte?.empresa ?? "");
 
-  // ── Snapshot (último estado guardado) ──────────
-  const [snapshot, setSnapshot] = useState<Snapshot>(
-    reporte
-      ? {
-          empresa: reporte.empresa,
-          categoria: mapServicioToCategoria(reporte.servicio),
-          tipoAveria: "",
-          estado: mapEstadoToForm(reporte.estado),
-          descripcion: "",
-          calle: "",
-          vecindario: reporte.sector,
-          responsable: reporte.responsable,
-        }
-      : SNAPSHOT_VACIO,
-  );
+  // Load full report detail in view mode (description, address, createdAt, coords, failure types)
+  useEffect(() => {
+    if (!isViewMode || !reporte?.id) return;
+    reportsService.getById(String(reporte.id)).then((res) => {
+      const r = res.data.report;
+      const desc = r.description ?? "";
+      const addr = r.address ?? "";
+      const fecha = new Date(r.createdAt).toLocaleDateString("es-VE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      setDescripcion(desc);
+      setCalle(addr);
+      setViewCreatedAt(fecha);
+      if (r.longitude != null && r.latitude != null) {
+        setReportePinCoords([r.longitude, r.latitude]);
+      }
+      // Cargar tipos de avería de la categoría para tener los IDs disponibles en edición
+      if (r.category?.id) {
+        catalogService.getFailureTypesByCategory(r.category.id).then((ftRes) => {
+          const fts = ftRes.data.failureTypes;
+          setFailureTypesOptions(fts.map((ft) => ft.name));
+          const ftMap: Record<string, number> = {};
+          fts.forEach((ft) => { ftMap[ft.name] = ft.id; });
+          setFailureTypesMap(ftMap);
+        });
+      }
+    });
+  }, []);
 
-  // ── Historial de cambios ────────────────────────
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-
-  const tiposAveria = categoria
-    ? [...(TIPOS_POR_CATEGORIA[categoria] ?? []), "Otro"]
-    : ["Otro"];
+  const tiposAveria = failureTypesOptions.length > 0
+    ? failureTypesOptions
+    : isViewMode
+      ? [...(TIPOS_POR_CATEGORIA[categoria] ?? []), "Otro"]
+      : [];
 
   function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) return;
     setImagenes((prev) => [...prev, ...Array.from(e.target.files!)]);
   }
 
-  function handleGuardar() {
-    const current: Snapshot = {
-      empresa,
-      categoria,
-      tipoAveria,
-      estado,
-      descripcion,
-      calle,
-      vecindario,
-      responsable,
-    };
-
-    const ahora = new Date().toLocaleString("es-VE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    const nuevosLogs: LogEntry[] = (Object.keys(current) as (keyof Snapshot)[])
-      .filter(
-        (key) =>
-          current[key] !== snapshot[key] &&
-          (current[key] !== "" || snapshot[key] !== ""),
-      )
-      .map((key, i) => ({
-        id: Date.now() + i,
-        fecha: ahora,
-        usuario: user?.name ?? "Admin_Urbis_01",
-        campo: LABELS[key],
-        valorAnterior: snapshot[key] || "—",
-        valorNuevo: current[key] || "—",
-      }));
-
-    if (nuevosLogs.length > 0) {
-      setLogs((prev) => [...prev, ...nuevosLogs]);
-      setSnapshot(current);
+  async function handleGuardarCambios() {
+    if (!reporte?.id) return;
+    try {
+      await reportsService.update(reporte.id, {
+        ...(descripcion.trim() && { description: descripcion.trim() }),
+        ...(failureTypesMap[tipoAveria] && { failureTypeId: failureTypesMap[tipoAveria] }),
+      });
+    } catch (err) {
+      console.error("Error al guardar cambios:", err);
     }
   }
 
-  function handleRegistrar() {
-    if (categoria && !correlativo) {
-      const prefix =
-        categoria === "Agua Potable"
-          ? "A"
-          : categoria === "Electricidad"
-            ? "L"
-            : "U";
-      const counters = state?.counters ?? { A: 5, L: 3, U: 4 };
-      const count = (counters[prefix as "A" | "L" | "U"] ?? 0) + 1;
-      setCorrelativo(`#${prefix}-${String(count).padStart(5, "0")}`);
+  async function handleRegistrar() {
+    const camposInvalidos =
+      !categoria || !empresa || !tipoAveria || !descripcion.trim() || !selectedCoords;
+    if (camposInvalidos) {
+      setShowErrors(true);
+      return;
     }
-    handleGuardar();
+    try {
+      await reportsService.create({
+        description: descripcion,
+        latitude: selectedCoords[1],
+        longitude: selectedCoords[0],
+        categoryId: categoriesMap[categoria],
+        ...(companiesMap[empresa] && { companyId: companiesMap[empresa] }),
+        ...(failureTypesMap[tipoAveria] && { failureTypeId: failureTypesMap[tipoAveria] }),
+        ...(calle && { address: calle }),
+      });
+      navigate(ROUTES.REPORTES);
+    } catch (err) {
+      console.error("Error al crear reporte:", err);
+    }
   }
 
   return (
@@ -310,10 +318,10 @@ export default function DetallesReporte() {
               className="absolute top-6 -right-9 w-40 text-center text-[11px] font-bold tracking-widest text-white py-1.5 z-10 pointer-events-none"
               style={{
                 transform: "rotate(45deg)",
-                backgroundColor: estadoRegistro === "archivado" ? "#64748B" : "#DC2626",
+                backgroundColor: "#DC2626",
               }}
             >
-              {estadoRegistro === "archivado" ? "ARCHIVADO" : "CANCELADO"}
+              CANCELADO
             </div>
           )}
 
@@ -335,24 +343,24 @@ export default function DetallesReporte() {
                     <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
                       <button
                         type="button"
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => { setEstadoRegistro("archivado"); setDropdownOpen(false); }}
-                      >
-                        Archivar
-                      </button>
-                      <button
-                        type="button"
                         className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
-                        onClick={() => { setEstadoRegistro("cancelado"); setDropdownOpen(false); }}
+                        onClick={async () => {
+                          if (!reporte?.id) return;
+                          try {
+                            const res = await reportsService.updateStatus(reporte.id, "CANCELADO");
+                            const estadoActualizado = res.data.report.state.name;
+                            if (estadoActualizado === "CANCELADO") {
+                              setEstadoRegistro("cancelado");
+                              setEstado("Cancelado");
+                            }
+                          } catch (err) {
+                            console.error("Error al cancelar reporte:", err);
+                          } finally {
+                            setDropdownOpen(false);
+                          }
+                        }}
                       >
                         Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-gray-50 cursor-pointer border-t border-gray-100"
-                        onClick={() => { setEstadoRegistro(null); setDropdownOpen(false); }}
-                      >
-                        Restablecer
                       </button>
                     </div>
                   )}
@@ -367,72 +375,96 @@ export default function DetallesReporte() {
               </p>
             )}
 
-            <Field label="Empresa">
-              {ro("empresa") ? (
-                <div className={inputClass} style={readonlyStyle}>
-                  {empresa || "—"}
-                </div>
-              ) : (
-                <CustomSelect
-                  placeholder="Selecciona una empresa"
-                  options={[
-                    "Aguas del Norte",
-                    "Energía Urbana",
-                    "Metrogas Central",
-                    "Limpieza Regional",
-                  ]}
-                  value={empresa}
-                  onChange={setEmpresa}
-                />
-              )}
-            </Field>
-
             <Field label="Categoría">
               {ro("categoria") ? (
                 <div className={inputClass} style={readonlyStyle}>
                   {categoria || "—"}
                 </div>
               ) : (
-                <CustomSelect
-                  placeholder="Selecciona una categoría"
-                  options={CATEGORIAS}
-                  value={categoria}
-                  onChange={(v) => {
-                    setCategoria(v);
-                    setTipoAveria("");
-                  }}
-                />
+                <>
+                  <div className={!isViewMode && showErrors && !categoria ? "rounded-xl ring-2 ring-red-400" : ""}>
+                    <CustomSelect
+                      placeholder="Selecciona una categoría"
+                      options={isViewMode ? CATEGORIAS : categoriesOptions}
+                      value={categoria}
+                      onChange={isViewMode
+                        ? (v) => { setCategoria(v); setTipoAveria(""); }
+                        : handleCategoriaChange
+                      }
+                    />
+                  </div>
+                  {!isViewMode && showErrors && !categoria && (
+                    <span className="text-xs text-red-500">Campo obligatorio</span>
+                  )}
+                </>
+              )}
+            </Field>
+
+            <Field label="Empresa">
+              {ro("empresa") ? (
+                <div className={inputClass} style={readonlyStyle}>
+                  {empresa || "—"}
+                </div>
+              ) : (
+                <>
+                  <div className={!isViewMode && showErrors && !empresa ? "rounded-xl ring-2 ring-red-400" : ""}>
+                    <CustomSelect
+                      key={categoriaId}
+                      placeholder="Selecciona una empresa"
+                      options={isViewMode
+                        ? ["Aguas del Norte", "Energía Urbana", "Metrogas Central", "Limpieza Regional"]
+                        : companiesOptions
+                      }
+                      value={empresa}
+                      onChange={setEmpresa}
+                      disabled={!isViewMode && !categoriaId}
+                    />
+                  </div>
+                  {!isViewMode && showErrors && !empresa && (
+                    <span className="text-xs text-red-500">Campo obligatorio</span>
+                  )}
+                </>
               )}
             </Field>
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="Tipo de Avería">
-                {ro("tipoAveria") ? (
+                {isWorker ? (
                   <div className={inputClass} style={readonlyStyle}>
                     {tipoAveria || "—"}
                   </div>
                 ) : (
-                  <CustomSelect
-                    key={categoria}
-                    placeholder="Selecciona un tipo"
-                    options={tiposAveria}
-                    value={tipoAveria}
-                    onChange={setTipoAveria}
-                  />
+                  <>
+                    <div className={!isViewMode && showErrors && !tipoAveria ? "rounded-xl ring-2 ring-red-400" : ""}>
+                      <CustomSelect
+                        key={categoria}
+                        placeholder="Selecciona un tipo"
+                        options={tiposAveria}
+                        value={tipoAveria}
+                        onChange={setTipoAveria}
+                        disabled={!isViewMode && !categoriaId}
+                      />
+                    </div>
+                    {!isViewMode && showErrors && !tipoAveria && (
+                      <span className="text-xs text-red-500">Campo obligatorio</span>
+                    )}
+                  </>
                 )}
               </Field>
               <Field label="Estado">
-                <CustomSelect
-                  placeholder="Selecciona un estado"
-                  options={[
-                    "En Proceso",
-                    "Pendiente",
-                    "Asignado",
-                    "Completado",
-                  ]}
-                  value={estado}
-                  onChange={setEstado}
-                />
+                {isViewMode ? (
+                  <div className={inputClass} style={readonlyStyle}>
+                    {estado || "—"}
+                  </div>
+                ) : (
+                  <CustomSelect
+                    placeholder="Selecciona un estado"
+                    options={["En Proceso", "Pendiente", "Asignado", "Completado", "Archivado", "Cancelado"]}
+                    value={estado}
+                    onChange={setEstado}
+                    disabled={isCitizen}
+                  />
+                )}
               </Field>
             </div>
 
@@ -440,12 +472,15 @@ export default function DetallesReporte() {
               <textarea
                 rows={4}
                 placeholder="Describa el problema observado con el mayor detalle posible..."
-                className={`${inputClass} resize-none${ro("descripcion") ? " cursor-default" : ""}`}
+                className={`${inputClass} resize-none${isWorker ? " cursor-default" : ""}${!isViewMode && showErrors && !descripcion.trim() ? " ring-2 ring-red-400" : ""}`}
                 style={readonlyStyle}
                 value={descripcion}
-                readOnly={ro("descripcion")}
+                readOnly={isWorker}
                 onChange={(e) => setDescripcion(e.target.value)}
               />
+              {!isViewMode && showErrors && !descripcion.trim() && (
+                <span className="text-xs text-red-500">Campo obligatorio</span>
+              )}
             </Field>
 
             <div className={sectionTitleClass}>
@@ -471,20 +506,10 @@ export default function DetallesReporte() {
                   />
                 </Field>
 
-                <Field label="Vecindario / Barrio">
-                  <input
-                    type="text"
-                    placeholder="Centro Histórico"
-                    className={`${inputClass}${ro("vecindario") ? " cursor-default" : ""}`}
-                    style={readonlyStyle}
-                    value={vecindario}
-                    readOnly={ro("vecindario")}
-                    onChange={(e) => setVecindario(e.target.value)}
-                  />
-                </Field>
+
 
                 <Field label="Coordenadas GPS">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={`grid grid-cols-2 gap-2${!isViewMode && showErrors && !selectedCoords ? " ring-2 ring-red-400 rounded-xl" : ""}`}>
                     <input
                       type="text"
                       readOnly
@@ -512,6 +537,9 @@ export default function DetallesReporte() {
                       style={readonlyStyle}
                     />
                   </div>
+                  {!isViewMode && showErrors && !selectedCoords && (
+                    <span className="text-xs text-red-500">Selecciona un punto en el mapa</span>
+                  )}
                 </Field>
               </div>
 
@@ -520,7 +548,18 @@ export default function DetallesReporte() {
                 <Map
                   pinCoords={isViewMode ? reportePinCoords : undefined}
                   editPin={!isViewMode && (isAdmin || isCitizen)}
-                  onPinChange={(coords) => setSelectedCoords(coords)}
+                  onPinChange={async (coords) => {
+                    setSelectedCoords(coords);
+                    if (!coords) return;
+                    try {
+                      const res = await reportsService.getAddress(coords[1], coords[0]);
+                      const addr = res.data.address;
+                      setCalle(addr.street ?? addr.formatted ?? "");
+                      setVecindario(addr.neighborhood ?? addr.quarter ?? addr.village ?? "");
+                    } catch {
+                      // el usuario puede rellenar manualmente si falla
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -543,7 +582,9 @@ export default function DetallesReporte() {
                   style={readonlyStyle}
                 >
                   <span className="text-sm font-medium text-gray-700 flex-1 truncate">
-                    {reporte?.creadoPor ?? "Admin_Urbis_01"}
+                    {isViewMode
+                      ? (reporte?.creadoPor ?? "—")
+                      : `${user?.name ?? ""} ${user?.lastname ?? ""}`.trim()}
                   </span>
                 </div>
               </Field>
@@ -555,14 +596,24 @@ export default function DetallesReporte() {
                 >
                   <CalendarDays size={15} color="#0040DF" />
                   <span className="text-sm text-gray-700">
-                    12/10/2023 14:30
+                    {isViewMode
+                      ? (viewCreatedAt || "—")
+                      : new Date().toLocaleDateString("es-VE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
                   </span>
                 </div>
               </Field>
 
               <div className="col-span-2">
                 <Field label="Responsable Asignado">
-                  {ro("responsable") ? (
+                  {!isViewMode ? (
+                    <div className={inputClass} style={readonlyStyle}>
+                      —
+                    </div>
+                  ) : ro("responsable") ? (
                     <div className={inputClass} style={readonlyStyle}>
                       {responsable || "—"}
                     </div>
@@ -634,74 +685,17 @@ export default function DetallesReporte() {
             <Button
               text={isViewMode ? "Guardar Cambios" : "Registrar"}
               variant_classes="btn-primary w-full h-12 text-base"
-              onClick={isViewMode ? handleGuardar : handleRegistrar}
+              onClick={isViewMode ? handleGuardarCambios : handleRegistrar}
             />
             <Button
               text="Cancelar"
               variant_classes="bg-[#e21313] text-[white] w-full h-12 text-base"
+              onClick={() => navigate(ROUTES.REPORTES)}
             />
           </div>
         </div>
       </div>
 
-      {/* ── Historial de Cambios ── */}
-      <div className={`${cardClass} mt-5`}>
-        <div className={sectionTitleClass}>
-          <History size={17} color="#0040DF" />
-          <span>Historial de Cambios</span>
-        </div>
-
-        {logs.length === 0 ? (
-          <p className="text-sm text-gray-400 py-4 text-center">
-            Aún no hay cambios registrados. Modifica campos y guarda para ver el
-            historial.
-          </p>
-        ) : (
-          <div className="flex flex-col divide-y divide-gray-100">
-            {[...logs].reverse().map((log, idx, arr) => (
-              <div
-                key={log.id}
-                className="flex gap-4 py-4 first:pt-0 last:pb-0"
-              >
-                {/* Timeline indicator */}
-                <div className="flex flex-col items-center gap-1 pt-0.5">
-                  <div className="w-8 h-8 rounded-full bg-[#0040DF]/10 flex items-center justify-center shrink-0">
-                    <UserCircle2 size={16} color="#0040DF" />
-                  </div>
-                  {idx < arr.length - 1 && (
-                    <div className="w-px flex-1 bg-gray-200 mt-1" />
-                  )}
-                </div>
-
-                {/* Log content */}
-                <div className="flex-1 pb-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-gray-800">
-                      {log.usuario}
-                    </span>
-                    <span className="text-xs text-gray-400">{log.fecha}</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Modificó{" "}
-                    <span className="font-semibold text-gray-700">
-                      {log.campo}
-                    </span>
-                  </p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2.5 py-1 rounded-lg bg-red-50 text-red-500 text-xs line-through">
-                      {log.valorAnterior}
-                    </span>
-                    <ArrowRight size={13} className="text-gray-400 shrink-0" />
-                    <span className="px-2.5 py-1 rounded-lg bg-green-50 text-green-600 text-xs font-medium">
-                      {log.valorNuevo}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

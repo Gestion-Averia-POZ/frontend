@@ -10,6 +10,7 @@ interface Field {
   placeholder: string;
   type?: string;
   options?: string[];
+  disabled?: boolean;
   // Props opcionales para inputs controlados
   value?: string;
   onChange?: (value: string) => void;
@@ -24,7 +25,7 @@ interface FormProps {
   fields: Field[];
   submitIcon?: LucideIcon;
   // Callback que se ejecuta al hacer submit (opcional)
-  onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSubmit?: (e: { preventDefault(): void }) => void;
   // Mensaje de error a mostrar sobre el botón (opcional)
   error?: string;
 }
@@ -50,6 +51,7 @@ export default function Form({
     placeholder,
     type = "text",
     options,
+    disabled,
     value,
     onChange,
   }: Field) => (
@@ -77,6 +79,7 @@ export default function Form({
           typeInput={type}
           placeholder={placeholder}
           classes="w-full"
+          disabled={disabled}
           value={value}
           onChange={onChange}
         />

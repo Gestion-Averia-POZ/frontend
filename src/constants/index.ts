@@ -28,39 +28,4 @@ export const DASHBOARD_ROUTES: Record<UserRole, string> = {
 
 export const APP_NAME = "Urbis";
 
-// ─────────────────────────────────────────────
-// USUARIOS MOCK — solo para desarrollo
-// Reemplazar por llamadas al backend cuando
-// los endpoints estén disponibles.
-// ─────────────────────────────────────────────
-
 export type UserRole = "admin" | "company" | "worker" | "citizen";
-
-export const MOCK_USERS = [
-  {
-    email: "admin@ejemplo.com",
-    password: "admin",
-    role: "admin" as UserRole,
-    name: "Administrador",
-  },
-  {
-    email: "company@ejemplo.com",
-    password: "admin",
-    role: "company" as UserRole,
-    name: "Empresa X",
-    empresa: "Empresa X",
-    categorias: ["Agua", "Aseo Urbano"],
-  },
-  {
-    email: "worker@ejemplo.com",
-    password: "admin",
-    role: "worker" as UserRole,
-    name: "worker",
-  },
-  {
-    email: "citizen@ejemplo.com",
-    password: "admin",
-    role: "citizen" as UserRole,
-    name: "reportante",
-  },
-] as const;
