@@ -299,6 +299,7 @@ export default function DashboardCitizen() {
                         correlativo: `#URB-${r.id.slice(0, 8).toUpperCase()}`,
                         empresa:     r.company?.name ?? "—",
                         servicio:    r.category.name,
+                        categoryId:  r.category.id,
                         tipoAveria:  r.failureType?.name ?? "—",
                         prioridad:   r.priority,
                         estado:      r.state.name,
@@ -307,6 +308,11 @@ export default function DashboardCitizen() {
                           ? `${r.assignedManager.name} ${r.assignedManager.lastname}`
                           : "",
                         creadoPor:   `${r.user.name} ${r.user.lastname}`,
+                        descripcion: r.description,
+                        address:     r.address ?? "",
+                        latitude:    r.latitude,
+                        longitude:   r.longitude,
+                        createdAt:   r.createdAt,
                       },
                     },
                   });

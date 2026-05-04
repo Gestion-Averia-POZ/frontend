@@ -1,77 +1,165 @@
+import { useEffect, useState } from "react";
 import {
-  Download,
   Files,
   AlertTriangle,
   ClipboardCheck,
   Droplet,
   Zap,
   Trash2,
+  LayoutGrid,
 } from "lucide-react";
-import { Button, Card, MetricsCharts } from "../../../components/ui";
 import { Map } from "../../../components/layout";
-import servicesSvg from "../../../assets/icons/services.svg";
 import List from "../../../components/ui/LIst";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../../constants";
+import { reportsService, BackendReport } from "../../../services/reports.service";
+import type { LucideIcon } from "lucide-react";
+
+function AdminStatCard({
+  label,
+  value,
+  icon: Icon,
+  bg,
+  textColor,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  icon: LucideIcon;
+  bg: string;
+  textColor: string;
+  onClick?: () => void;
+}) {
+  return (
+    <div
+      className="rounded-xl p-5 flex flex-col gap-2 cursor-pointer hover:brightness-95 transition-all"
+      style={{ backgroundColor: bg, color: textColor }}
+      onClick={onClick}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-widest opacity-70">
+          {label}
+        </span>
+        <Icon size={18} className="opacity-30" />
+      </div>
+      <span className="text-3xl font-bold">{value}</span>
+    </div>
+  );
+}
+
+const SERVICE_ICON_CFG: Record<string, { icon: typeof Droplet; color: string; label: string }> = {
+  Agua: { icon: Droplet, color: "#3B82F6", label: "Agua Potable" },
+  Electricidad: { icon: Zap, color: "#EAB308", label: "Luz Eléctrica" },
+  "Aseo Urbano": { icon: Trash2, color: "#F97316", label: "Aseo Urbano" },
+};
+
+const STATE_CFG: Record<string, { label: string; bg: string; color: string }> = {
+  PENDIENTE: { label: "PENDIENTE", bg: "#F1F5F9", color: "#64748B" },
+  EN_PROCESO: { label: "EN PROCESO", bg: "#FEF3C7", color: "#D97706" },
+  COMPLETADO: { label: "COMPLETADO", bg: "#DCFCE7", color: "#16A34A" },
+  CANCELADO: { label: "CANCELADO", bg: "#FEE2E2", color: "#DC2626" },
+};
+
+const PRIORITY_CFG: Record<string, { color: string }> = {
+  ALTA: { color: "#EF4444" },
+  MEDIA: { color: "#F97316" },
+  BAJA: { color: "#22C55E" },
+};
+
+function getTopCategories(reports: BackendReport[], n: number): string[] {
+  const counts: Record<string, number> = {};
+  for (const r of reports) {
+    counts[r.category.name] = (counts[r.category.name] ?? 0) + 1;
+  }
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([name]) => name);
+}
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [reports, setReports] = useState<BackendReport[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    reportsService
+      .getAll({ limit: 500 })
+      .then((res) => setReports(res.data.reports))
+      .catch(() => setReports([]))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const total = reports.length;
+  const sinAtender = reports.filter((r) => r.state.name === "PENDIENTE").length;
+  const atendidos = reports.filter((r) => r.state.name === "COMPLETADO").length;
+  const topCategories = getTopCategories(reports, 2);
+  const fallasPrincipalesLabel = topCategories.length ? topCategories.join(" / ") : "—";
+
+  const latestReports = reports.slice(0, 5);
+
   return (
     <div className="max-w-6xl mx-auto px-2">
       <section id="Resumen" className="flex flex-col gap-2">
-        <h1 className=" text-4xl font-bold">Resumen del Sistema</h1>
+        <h1 className="text-4xl font-bold">Resumen del Sistema</h1>
         <small>Panel de control con resumen de las averías de la ciudad</small>
 
-        <div className="grid grid-cols-4">
-          <Card
-            title="Total de Reportes"
-            description="113"
-            bgIcon={Files}
-            extraClasses="bg-[#DBEAFE] text-[#1E40AF]"
+        <div className="grid grid-cols-4 gap-4">
+          <AdminStatCard
+            label="Total de Reportes"
+            value={isLoading ? "..." : String(total)}
+            icon={Files}
+            bg="#DBEAFE"
+            textColor="#1E40AF"
             onClick={() => navigate(ROUTES.REPORTES)}
           />
-          <Card
-            title="Reportes sin Atender"
-            description="50"
-            bgIcon={AlertTriangle}
-            extraClasses="bg-[#FEF9C3] text-[#854D0E]"
+          <AdminStatCard
+            label="Reportes sin Atender"
+            value={isLoading ? "..." : String(sinAtender)}
+            icon={AlertTriangle}
+            bg="#FEF9C3"
+            textColor="#854D0E"
             onClick={() =>
               navigate(ROUTES.REPORTES, {
                 state: {
                   initialFilterState: {
-                    checkbox: { estado: ["Pendiente"] },
+                    checkbox: { estado: ["PENDIENTE"] },
                     text: {},
                   },
                 },
               })
             }
           />
-          <Card
-            title="Reportes Atendidos"
-            description="63"
-            bgIcon={ClipboardCheck}
-            extraClasses="bg-[#DCFCE7] text-[#166534]"
+          <AdminStatCard
+            label="Reportes Atendidos"
+            value={isLoading ? "..." : String(atendidos)}
+            icon={ClipboardCheck}
+            bg="#DCFCE7"
+            textColor="#166534"
             onClick={() =>
               navigate(ROUTES.REPORTES, {
                 state: {
                   initialFilterState: {
-                    checkbox: { estado: ["Resuelto"] },
+                    checkbox: { estado: ["COMPLETADO"] },
                     text: {},
                   },
                 },
               })
             }
           />
-          <Card
-            title="Fallas principales"
-            description="AGUA/LUZ"
-            bgImage={servicesSvg}
-            extraClasses="bg-[#FCA5A5] text-[#7F1D1D]"
+          <AdminStatCard
+            label="Fallas Principales"
+            value={isLoading ? "..." : fallasPrincipalesLabel}
+            icon={LayoutGrid}
+            bg="#FCA5A5"
+            textColor="#7F1D1D"
             onClick={() =>
               navigate(ROUTES.REPORTES, {
                 state: {
                   initialFilterState: {
-                    checkbox: { servicio: ["Agua", "Electricidad"] },
+                    checkbox: {
+                      servicio: topCategories.length ? topCategories : [],
+                    },
                     text: {},
                   },
                 },
@@ -92,17 +180,12 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <section id="Metricas" className="mt-15 mb-15">
-        <h2 className="mb-4 text-2xl font-semibold">Métricas</h2>
-        <MetricsCharts />
-      </section>
-
       <section id="Ultimas-incidencias" className="mt-15">
         <h2 className="mb-2 text-2xl font-semibold">Últimas Incidencias</h2>
         <List
           renderRowId={(id) => (
             <span className="font-mono text-xs" style={{ color: "#64748B" }}>
-              #URB-{String(id).padStart(4, "0")}
+              #URB-{String(id).slice(0, 8).toUpperCase()}
             </span>
           )}
           columns={[
@@ -117,33 +200,13 @@ export default function AdminDashboard() {
               key: "servicio",
               header: "Servicio",
               render: (row) => {
-                const cfg: Record<
-                  string,
-                  { icon: typeof Droplet; color: string; label: string }
-                > = {
-                  Agua: {
-                    icon: Droplet,
-                    color: "#3B82F6",
-                    label: "Agua Potable",
-                  },
-                  Electricidad: {
-                    icon: Zap,
-                    color: "#EAB308",
-                    label: "Luz Eléctrica",
-                  },
-                  "Aseo Urbano": {
-                    icon: Trash2,
-                    color: "#F97316",
-                    label: "Aseo Urbano",
-                  },
-                };
-                const s = cfg[row.servicio];
-                if (!s) return row.servicio;
+                const s = SERVICE_ICON_CFG[row.servicio];
+                if (!s) return <span className="text-gray-700">{row.servicio}</span>;
                 const Icon = s.icon;
                 return (
                   <div className="flex items-center gap-2">
                     <Icon size={16} color={s.color} />
-                    <span className="text-gray-700">{s.label}</span>
+                    <span className="text-gray-700">{row.servicio}</span>
                   </div>
                 );
               },
@@ -152,27 +215,7 @@ export default function AdminDashboard() {
               key: "estado",
               header: "Estado",
               render: (row) => {
-                const cfg: Record<
-                  string,
-                  { label: string; bg: string; color: string }
-                > = {
-                  Pendiente: {
-                    label: "PENDIENTE",
-                    bg: "#F1F5F9",
-                    color: "#64748B",
-                  },
-                  Revisión: {
-                    label: "EN PROCESO",
-                    bg: "#FEF3C7",
-                    color: "#D97706",
-                  },
-                  Resuelto: {
-                    label: "COMPLETADO",
-                    bg: "#DCFCE7",
-                    color: "#16A34A",
-                  },
-                };
-                const s = cfg[row.estado] ?? {
+                const s = STATE_CFG[row.estado] ?? {
                   label: row.estado,
                   bg: "#F1F5F9",
                   color: "#64748B",
@@ -191,12 +234,7 @@ export default function AdminDashboard() {
               key: "prioridad",
               header: "Prioridad",
               render: (row) => {
-                const cfg: Record<string, { color: string }> = {
-                  Alta: { color: "#EF4444" },
-                  Media: { color: "#F97316" },
-                  Baja: { color: "#22C55E" },
-                };
-                const s = cfg[row.prioridad] ?? { color: "#64748B" };
+                const s = PRIORITY_CFG[row.prioridad] ?? { color: "#64748B" };
                 return (
                   <div className="flex items-center gap-1.5">
                     <div
@@ -218,68 +256,46 @@ export default function AdminDashboard() {
               ),
             },
           ]}
-          data={[
-            {
-              id: 1,
-              empresa: "Empresa X",
-              servicio: "Agua",
-              prioridad: "Alta",
-              estado: "Pendiente",
-              sector: "Unare",
-            },
-            {
-              id: 2,
-              empresa: "Empresa Y",
-              servicio: "Electricidad",
-              prioridad: "Baja",
-              estado: "Revisión",
-              sector: "Sierra Parima",
-            },
-            {
-              id: 3,
-              empresa: "Empresa X",
-              servicio: "Agua",
-              prioridad: "Alta",
-              estado: "Pendiente",
-              sector: "Unare",
-            },
-            {
-              id: 4,
-              empresa: "Empresa Y",
-              servicio: "Electricidad",
-              prioridad: "Media",
-              estado: "Revisión",
-              sector: "Sierra Parima",
-            },
-            {
-              id: 5,
-              empresa: "Empresa Z",
-              servicio: "Aseo Urbano",
-              prioridad: "Baja",
-              estado: "Resuelto",
-              sector: "La Llanada",
-            },
-          ]}
+          data={latestReports.map((r) => ({
+            id: r.id,
+            empresa: r.company?.name ?? "—",
+            servicio: r.category.name,
+            prioridad: r.priority,
+            estado: r.state.name,
+            sector: r.neighborhood?.name ?? "—",
+          }))}
           actions={[
             {
               label: "Ver Detalles",
-              onClick: (row) =>
+              onClick: (row) => {
+                const report = latestReports.find((r) => r.id === row.id);
+                if (!report) return;
                 navigate(ROUTES.DETALLES_REPORTE, {
                   state: {
                     reporte: {
-                      id: row.id,
-                      correlativo: `#URB-${String(row.id).padStart(4, "0")}`,
-                      empresa: row.empresa ?? "",
-                      servicio: row.servicio,
-                      prioridad: row.prioridad,
-                      estado: row.estado,
-                      sector: row.sector,
-                      responsable: "",
-                      creadoPor: "",
+                      id: report.id,
+                      correlativo: `#URB-${report.id.slice(0, 8).toUpperCase()}`,
+                      empresa: report.company?.name ?? "—",
+                      servicio: report.category.name,
+                      categoryId: report.category.id,
+                      tipoAveria: report.failureType?.name ?? "—",
+                      prioridad: report.priority,
+                      estado: report.state.name,
+                      sector: report.neighborhood?.name ?? "—",
+                      responsable: report.assignedManager
+                        ? `${report.assignedManager.name} ${report.assignedManager.lastname}`
+                        : "",
+                      creadoPor: `${report.user.name} ${report.user.lastname}`,
+                      descripcion: report.description,
+                      address: report.address ?? "",
+                      latitude: report.latitude,
+                      longitude: report.longitude,
+                      createdAt: report.createdAt,
                     },
                     mode: "view",
                   },
-                }),
+                });
+              },
             },
           ]}
         />

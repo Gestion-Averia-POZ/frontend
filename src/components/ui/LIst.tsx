@@ -6,7 +6,7 @@ import ListFilter, { type FilterConfig, type FilterState } from "./ListFilter";
 export type { FilterConfig } from "./ListFilter";
 
 interface Action<T> {
-  label: string;
+  label: string | ((row: T) => string);
   icon?: LucideIcon;
   onClick: (row: T) => void;
   className?: string;
@@ -26,6 +26,7 @@ interface ListProps<T extends { id: number | string }> {
   filters?: FilterConfig<T>[];
   initialFilterState?: FilterState;
   filterActions?: React.ReactNode;
+  onFilterChange?: (state: FilterState) => void;
 }
 
 export default function List<T extends { id: number | string }>({
@@ -36,6 +37,7 @@ export default function List<T extends { id: number | string }>({
   filters,
   initialFilterState,
   filterActions,
+  onFilterChange,
 }: ListProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [filterState, setFilterState] = useState<FilterState>(
@@ -67,6 +69,7 @@ export default function List<T extends { id: number | string }>({
   function handleFilterChange(state: FilterState) {
     setFilterState(state);
     setCurrentPage(1);
+    onFilterChange?.(state);
   }
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -142,7 +145,7 @@ export default function List<T extends { id: number | string }>({
                             }
                           >
                             {action.icon && <action.icon size={14} />}
-                            {action.label}
+                            {typeof action.label === "function" ? action.label(row) : action.label}
                           </button>
                         ))}
                       </div>

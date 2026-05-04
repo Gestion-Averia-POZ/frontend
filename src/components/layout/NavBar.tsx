@@ -42,11 +42,6 @@ export default function Navbar() {
                 Contacto
               </button>
             </li>
-            <li>
-              <Link to={ROUTES.PRIVACY}>
-                <button>Privacidad</button>
-              </Link>
-            </li>
           </ul>
         </div>
         <div className="navbar-end">
@@ -88,9 +83,7 @@ export default function Navbar() {
               <li>
                 <a href="#Contactanos">Contacto</a>
               </li>
-              <Link to={ROUTES.PRIVACY}>
-                <button>Privacidad</button>
-              </Link>
+
               <li>
                 <Button
                   variant_classes="btn-primary"

@@ -19,7 +19,10 @@ import { ROUTES } from "../constants";
 import Modal from "../components/ui/Modal";
 import { useAuth } from "../context/AuthContext";
 import { authService, type BackendUserProfile } from "../services/auth.service";
-import { reportsService, type BackendReport } from "../services/reports.service";
+import {
+  reportsService,
+  type BackendReport,
+} from "../services/reports.service";
 
 const EMPRESAS_OPCIONES = [
   "Aguas del Norte",
@@ -144,7 +147,6 @@ const EMPLEADO_MOCK = {
   correo: "j.martinez@urbis.com",
   telefono: "+58 414 987 6543",
   empresaAsociada: "Aguas del Norte",
-  cargo: "Inspector de Servicios",
   miembroDesde: "Mar 2022",
   estado: "Activo",
 };
@@ -243,16 +245,59 @@ function EditableField({
 }
 
 function EstadoBadge({ estado }: { estado: string }) {
-  const cfg: Record<string, { bg: string; color: string; dot: string; label: string }> = {
-    Atendido:      { bg: "#DCFCE7", color: "#16A34A", dot: "#16A34A", label: "Atendido"     },
-    "En Revisión": { bg: "#FEF3C7", color: "#D97706", dot: "#D97706", label: "En Revisión"  },
-    Pendiente:     { bg: "#F1F5F9", color: "#64748B", dot: "#94A3B8", label: "Pendiente"    },
-    COMPLETADO:    { bg: "#DCFCE7", color: "#16A34A", dot: "#16A34A", label: "Atendido"     },
-    EN_PROCESO:    { bg: "#FEF3C7", color: "#D97706", dot: "#D97706", label: "En Revisión"  },
-    PENDIENTE:     { bg: "#F1F5F9", color: "#64748B", dot: "#94A3B8", label: "Pendiente"    },
-    CANCELADO:     { bg: "#FEE2E2", color: "#DC2626", dot: "#DC2626", label: "Cancelado"    },
+  const cfg: Record<
+    string,
+    { bg: string; color: string; dot: string; label: string }
+  > = {
+    Atendido: {
+      bg: "#DCFCE7",
+      color: "#16A34A",
+      dot: "#16A34A",
+      label: "Atendido",
+    },
+    "En Revisión": {
+      bg: "#FEF3C7",
+      color: "#D97706",
+      dot: "#D97706",
+      label: "En Revisión",
+    },
+    Pendiente: {
+      bg: "#F1F5F9",
+      color: "#64748B",
+      dot: "#94A3B8",
+      label: "Pendiente",
+    },
+    COMPLETADO: {
+      bg: "#DCFCE7",
+      color: "#16A34A",
+      dot: "#16A34A",
+      label: "Atendido",
+    },
+    EN_PROCESO: {
+      bg: "#FEF3C7",
+      color: "#D97706",
+      dot: "#D97706",
+      label: "En Revisión",
+    },
+    PENDIENTE: {
+      bg: "#F1F5F9",
+      color: "#64748B",
+      dot: "#94A3B8",
+      label: "Pendiente",
+    },
+    CANCELADO: {
+      bg: "#FEE2E2",
+      color: "#DC2626",
+      dot: "#DC2626",
+      label: "Cancelado",
+    },
   };
-  const s = cfg[estado] ?? { bg: "#F1F5F9", color: "#64748B", dot: "#94A3B8", label: estado };
+  const s = cfg[estado] ?? {
+    bg: "#F1F5F9",
+    color: "#64748B",
+    dot: "#94A3B8",
+    label: estado,
+  };
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -285,14 +330,13 @@ type ReporteHistorialRow = {
   estado: string;
 };
 
-
 function toReporteRow(r: BackendReport): ReporteHistorialRow {
   return {
-    id:       r.id,
+    id: r.id,
     servicio: r.category.name,
-    tipo:     r.failureType?.name ?? "—",
-    fecha:    formatDate(r.createdAt),
-    estado:   r.state.name,
+    tipo: r.failureType?.name ?? "—",
+    fecha: formatDate(r.createdAt),
+    estado: r.state.name,
   };
 }
 
@@ -321,24 +365,47 @@ export default function DetallesUsuario() {
   const isMiCuenta = !state?.origen;
   const isCitizen = user?.role === "citizen";
   const isSelfView = isMiCuenta && isCitizen;
+  const isCompanyMiCuenta = isMiCuenta && user?.role === "company";
+  const isWorkerMiCuenta = isMiCuenta && user?.role === "worker";
+  const isAdminMiCuenta = isMiCuenta && isAdmin;
 
   // Citizen self-view data
-  const [fetchedUserData, setFetchedUserData] = useState<BackendUserProfile | null>(null);
+  const [fetchedUserData, setFetchedUserData] =
+    useState<BackendUserProfile | null>(null);
   const [reportes, setReportes] = useState<BackendReport[]>([]);
   const [reportesLoading, setReportesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Empleado view data
+  const [workerIsActive, setWorkerIsActive] = useState<boolean>(() =>
+    tipo === "empleado" && !isCreateMode
+      ? ((state?.data?.isActive as boolean) ?? true)
+      : true,
+  );
+  const [assignedReports, setAssignedReports] = useState<BackendReport[]>([]);
+  const [assignedReportsLoading, setAssignedReportsLoading] = useState(isWorkerMiCuenta);
+
+  // Company self-view data
+  const [companyWorkers, setCompanyWorkers] = useState<BackendUserProfile[]>(
+    [],
+  );
+  const [companyOwnReports, setCompanyOwnReports] = useState<BackendReport[]>(
+    [],
+  );
+  const [companyDataLoading, setCompanyDataLoading] = useState(false);
 
   // Create-mode form states
   const [categoriasSeleccionadas, setCategoriasSeleccionadas] = useState<
     string[]
   >([]);
   const [nombre, setNombre] = useState(isSelfView ? (user?.name ?? "") : "");
-  const [apellido, setApellido] = useState(isSelfView ? (user?.lastname ?? "") : "");
+  const [apellido, setApellido] = useState(
+    isSelfView ? (user?.lastname ?? "") : "",
+  );
   const [correo, setCorreo] = useState(isSelfView ? (user?.email ?? "") : "");
   const [telefono, setTelefono] = useState("");
   const [direccion, setDireccion] = useState("");
   const [empresaAsociada, setEmpresaAsociada] = useState("");
-  const [cargo, setCargo] = useState("");
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -367,7 +434,7 @@ export default function DetallesUsuario() {
 
   // Pre-populate form states when admin opens a view-mode record
   useEffect(() => {
-    if (isCreateMode || !isAdmin) return;
+    if (isCreateMode || !isAdmin || isAdminMiCuenta) return;
     const row = state?.data as Record<string, unknown> | undefined;
     if (tipo === "empresa") {
       setNombre(String(row?.nombre ?? EMPRESA_MOCK.nombre));
@@ -380,12 +447,50 @@ export default function DetallesUsuario() {
       setCorreo(String(row?.correo ?? EMPLEADO_MOCK.correo));
       setTelefono(EMPLEADO_MOCK.telefono);
       setEmpresaAsociada(String(row?.empresa ?? EMPLEADO_MOCK.empresaAsociada));
-      setCargo(String(row?.cargo ?? EMPLEADO_MOCK.cargo));
     } else {
       setNombre(String(row?.nombre ?? REPORTANTE_MOCK.nombreCompleto));
       setCorreo(String(row?.email ?? REPORTANTE_MOCK.correo));
       setTelefono(String(row?.telefono ?? REPORTANTE_MOCK.telefono));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch company's own workers + reports when visiting "Mi Cuenta" as company
+  useEffect(() => {
+    if (!isCompanyMiCuenta || !user?.name || !user?.id) return;
+    setCompanyDataLoading(true);
+    Promise.all([
+      authService.getUsers({
+        role: "WORKER",
+        companyName: user.name,
+        limit: 100,
+      }),
+      reportsService.getAll({ limit: 1000 }),
+      authService.getUserById(user.id),
+    ])
+      .then(([workersRes, reportsRes, profileRes]) => {
+        setCompanyWorkers(workersRes.data.users);
+        setCompanyOwnReports(
+          reportsRes.data.reports.filter((r) => r.company?.name === user.name),
+        );
+        setTelefono(profileRes.data.user.phoneNumber ?? "");
+      })
+      .catch(console.error)
+      .finally(() => setCompanyDataLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch reports assigned to the worker being viewed
+  useEffect(() => {
+    if (tipo !== "empleado" || isCreateMode) return;
+    const workerId = state?.data?.id as string | undefined;
+    if (!workerId) return;
+    setAssignedReportsLoading(true);
+    reportsService
+      .getAll({ assignedManagerId: workerId, limit: 1000 })
+      .then((res) => setAssignedReports(res.data.reports))
+      .catch(console.error)
+      .finally(() => setAssignedReportsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -405,6 +510,57 @@ export default function DetallesUsuario() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fetch worker's phone + assigned reports when visiting "Mi Cuenta" as worker
+  useEffect(() => {
+    if (!isWorkerMiCuenta || !user?.id) return;
+    Promise.all([
+      authService.getUserById(user.id),
+      reportsService.getAssigned(),
+    ])
+      .then(([profileRes, reportsRes]) => {
+        setTelefono(profileRes.data.user.phoneNumber ?? "");
+        setAssignedReports(reportsRes.data.reports);
+      })
+      .catch(console.error)
+      .finally(() => setAssignedReportsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch admin's own profile when visiting "Mi Cuenta" as admin
+  useEffect(() => {
+    if (!isAdminMiCuenta || !user?.id) return;
+    authService.getUserById(user.id).then((res) => {
+      const u = res.data.user;
+      setNombre(u.name);
+      setApellido(u.lastname);
+      setCorreo(u.email);
+      setTelefono(u.phoneNumber ?? "");
+    }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleCreateEmployee() {
+    if (!nombre.trim() || !apellido.trim() || !correo.trim()) return;
+    const companyId = user?.companyId;
+    if (!companyId) return;
+    setSaving(true);
+    try {
+      await authService.createEmployee({
+        name: nombre.trim(),
+        lastname: apellido.trim(),
+        email: correo.trim(),
+        password: "123456",
+        companyId,
+        ...(telefono.trim() ? { phoneNumber: telefono.trim() } : {}),
+      });
+      navigate(ROUTES.EMPLEADOS);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSaveCitizen() {
     if (!user?.id) return;
     setSaving(true);
@@ -418,17 +574,498 @@ export default function DetallesUsuario() {
       const stored = localStorage.getItem("urbis_user");
       if (stored) {
         const parsed = JSON.parse(stored);
-        localStorage.setItem("urbis_user", JSON.stringify({
-          ...parsed,
-          name: nombre.trim(),
-          lastname: apellido.trim(),
-        }));
+        localStorage.setItem(
+          "urbis_user",
+          JSON.stringify({
+            ...parsed,
+            name: nombre.trim(),
+            lastname: apellido.trim(),
+          }),
+        );
       }
     } catch (err) {
       console.error(err);
     } finally {
       setSaving(false);
     }
+  }
+
+  // ── WORKER SELF-VIEW (Mi Cuenta) ────────────────────────────────────────────
+  if (isWorkerMiCuenta) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 pb-10">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Mi Cuenta</h1>
+        </div>
+
+        {/* Info card */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
+          <div className="flex gap-8">
+            {/* Left — avatar + meta */}
+            <div className="flex flex-col items-center gap-3 min-w-[160px]">
+              <div className="w-24 h-24 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center">
+                <UserCircle2 size={56} color="#94A3B8" />
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-gray-900 text-base">
+                  {user?.name} {user?.lastname}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">Empleado</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-[#EFF6FF] text-[#0040DF] text-xs font-semibold">
+                Activo
+              </span>
+            </div>
+
+            {/* Right — fields */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-4">
+                <Briefcase size={16} color="#0040DF" />
+                <span className="font-semibold text-gray-800">
+                  Información del Empleado
+                </span>
+                <div ref={dropdownRef} className="relative">
+                  <button
+                    type="button"
+                    className="p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors"
+                    onClick={() => setDropdownOpen((v) => !v)}
+                  >
+                    <Settings size={16} color="#64748B" />
+                  </button>
+                  {dropdownOpen && (
+                    <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                      <button
+                        type="button"
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => {
+                          setPasswordModalOpen(true);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Restablecer contraseña
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Field
+                  label="Nombre Completo"
+                  value={`${user?.name ?? ""} ${user?.lastname ?? ""}`.trim()}
+                  colSpan
+                />
+                <Field
+                  label="Correo Electrónico"
+                  value={user?.email ?? ""}
+                  icon={<Mail size={14} />}
+                />
+                <Field
+                  label="Número de Teléfono"
+                  value={assignedReportsLoading ? "..." : telefono || "—"}
+                  icon={<Phone size={14} />}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Assigned reports */}
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Reportes Asignados
+          </h2>
+          {assignedReportsLoading ? (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              Cargando...
+            </p>
+          ) : assignedReports.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">
+              <p className="text-gray-500 font-medium">Sin reportes asignados</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Los reportes asignados a tu cuenta aparecerán aquí.
+              </p>
+            </div>
+          ) : (
+            <List
+              data={assignedReports.map(toReporteRow)}
+              filters={[
+                { field: "servicio", label: "Servicio",      type: "checkbox" },
+                { field: "estado",   label: "Estado",        type: "checkbox" },
+                { field: "tipo",     label: "Buscar avería", type: "text"     },
+              ]}
+              columns={[
+                {
+                  key: "servicio",
+                  header: "Tipo de Servicio",
+                  render: (row) => (
+                    <span className="text-gray-700">{row.servicio}</span>
+                  ),
+                },
+                {
+                  key: "tipo",
+                  header: "Tipo de Avería",
+                  render: (row) => (
+                    <span className="text-gray-700">{row.tipo}</span>
+                  ),
+                },
+                {
+                  key: "fecha",
+                  header: "Fecha",
+                  render: (row) => (
+                    <span className="text-gray-500">{row.fecha}</span>
+                  ),
+                },
+                {
+                  key: "estado",
+                  header: "Estado",
+                  render: (row) => <EstadoBadge estado={row.estado} />,
+                },
+              ]}
+              actions={[
+                {
+                  label: "Ver Detalles",
+                  onClick: (row) => {
+                    const r = assignedReports.find((rep) => rep.id === row.id);
+                    if (!r) return;
+                    navigate(ROUTES.DETALLES_REPORTE, {
+                      state: {
+                        mode: "view",
+                        reporte: {
+                          id:          r.id,
+                          correlativo: `#URB-${r.id.slice(0, 8).toUpperCase()}`,
+                          empresa:     r.company?.name ?? "—",
+                          servicio:    r.category.name,
+                          categoryId:  r.category.id,
+                          tipoAveria:  r.failureType?.name ?? "—",
+                          prioridad:   r.priority,
+                          estado:      r.state.name,
+                          sector:      r.neighborhood?.name ?? "—",
+                          responsable: r.assignedManager
+                            ? `${r.assignedManager.name} ${r.assignedManager.lastname}`
+                            : "",
+                          creadoPor:   `${r.user.name} ${r.user.lastname}`,
+                          descripcion: r.description,
+                          address:     r.address ?? "",
+                          latitude:    r.latitude,
+                          longitude:   r.longitude,
+                          createdAt:   r.createdAt,
+                        },
+                      },
+                    });
+                  },
+                },
+              ]}
+              itemsPerPage={5}
+            />
+          )}
+        </div>
+
+        <Modal
+          isOpen={passwordModalOpen}
+          onClose={() => {
+            setPasswordModalOpen(false);
+            setResetPassword("");
+            setResetConfirmPassword("");
+          }}
+          title="Restablecer contraseña"
+          confirmText="Guardar"
+          onConfirm={() => {
+            setPasswordModalOpen(false);
+            setResetPassword("");
+            setResetConfirmPassword("");
+          }}
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+                Introduzca la contraseña
+              </p>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#F0F4FF]">
+                <span className="text-[#0040DF] shrink-0">
+                  <Lock size={14} />
+                </span>
+                <input
+                  type="password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="bg-transparent outline-none w-full text-sm text-gray-700 placeholder:text-gray-400"
+                />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+                Repita la contraseña
+              </p>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#F0F4FF]">
+                <span className="text-[#0040DF] shrink-0">
+                  <Lock size={14} />
+                </span>
+                <input
+                  type="password"
+                  value={resetConfirmPassword}
+                  onChange={(e) => setResetConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="bg-transparent outline-none w-full text-sm text-gray-700 placeholder:text-gray-400"
+                />
+              </div>
+            </div>
+          </div>
+        </Modal>
+      </div>
+    );
+  }
+
+  // ── COMPANY SELF-VIEW (Mi Cuenta) ───────────────────────────────────────────
+  if (isCompanyMiCuenta) {
+    const workerRows = companyWorkers.map((w) => ({
+      id: w.id,
+      nombre: `${w.name} ${w.lastname}`,
+      telefono: w.phoneNumber ?? "—",
+      email: w.email,
+    }));
+    const reportRows = companyOwnReports.map(toReporteRow);
+
+    return (
+      <div className="max-w-6xl mx-auto px-4 pb-10">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Mi Cuenta</h1>
+        </div>
+
+        {/* Info card */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
+          <div className="flex gap-8">
+            {/* Left — avatar + meta */}
+            <div className="flex flex-col items-center gap-3 min-w-[160px]">
+              <div className="w-24 h-24 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center">
+                <Building2 size={40} color="#94A3B8" />
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-gray-900 text-base">
+                  {user?.name}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Empresa Verificada
+                </p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-[#DCFCE7] text-[#16A34A] text-xs font-semibold">
+                Activo
+              </span>
+            </div>
+
+            {/* Right — fields */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 size={16} color="#0040DF" />
+                <span className="font-semibold text-gray-800">
+                  Información de la Empresa
+                </span>
+                <div ref={dropdownRef} className="relative">
+                  <button
+                    type="button"
+                    className="p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors"
+                    onClick={() => setDropdownOpen((v) => !v)}
+                  >
+                    <Settings size={16} color="#64748B" />
+                  </button>
+                  {dropdownOpen && (
+                    <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                      <button
+                        type="button"
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => {
+                          setPasswordModalOpen(true);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Restablecer contraseña
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Field
+                  label="Nombre de la Empresa"
+                  value={user?.name ?? ""}
+                  colSpan
+                />
+                <Field
+                  label="Correo Electrónico"
+                  value={user?.email ?? ""}
+                  icon={<Mail size={14} />}
+                />
+                <Field
+                  label="Número de Teléfono"
+                  value={companyDataLoading ? "..." : telefono || "—"}
+                  icon={<Phone size={14} />}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Employees */}
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Empleados</h2>
+          {companyDataLoading ? (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              Cargando...
+            </p>
+          ) : workerRows.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              Sin empleados registrados.
+            </p>
+          ) : (
+            <List
+              data={workerRows}
+              columns={[
+                {
+                  key: "nombre",
+                  header: "Nombre y Apellido",
+                  render: (row) => (
+                    <span className="font-semibold text-gray-900">
+                      {row.nombre}
+                    </span>
+                  ),
+                },
+                {
+                  key: "telefono",
+                  header: "Teléfono",
+                  render: (row) => (
+                    <span className="text-gray-600">{row.telefono}</span>
+                  ),
+                },
+                {
+                  key: "email",
+                  header: "Correo Electrónico",
+                  render: (row) => (
+                    <span className="text-gray-600">{row.email}</span>
+                  ),
+                },
+              ]}
+              itemsPerPage={5}
+            />
+          )}
+        </div>
+
+        {/* Reports */}
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Historial de Reportes
+          </h2>
+          {companyDataLoading ? (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              Cargando...
+            </p>
+          ) : reportRows.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              Sin reportes registrados.
+            </p>
+          ) : (
+            <List
+              data={reportRows}
+              filters={[
+                { field: "servicio", label: "Servicio", type: "checkbox" },
+                { field: "tipo", label: "Tipo de Avería", type: "checkbox" },
+                { field: "estado", label: "Estado", type: "checkbox" },
+              ]}
+              columns={[
+                {
+                  key: "servicio",
+                  header: "Servicio",
+                  render: (row) => (
+                    <span className="text-gray-700">{row.servicio}</span>
+                  ),
+                },
+                {
+                  key: "tipo",
+                  header: "Tipo de Avería",
+                  render: (row) => (
+                    <span className="text-gray-700">{row.tipo}</span>
+                  ),
+                },
+                {
+                  key: "fecha",
+                  header: "Fecha",
+                  render: (row) => (
+                    <span className="text-gray-500">{row.fecha}</span>
+                  ),
+                },
+                {
+                  key: "estado",
+                  header: "Estado",
+                  render: (row) => <EstadoBadge estado={row.estado} />,
+                },
+              ]}
+              actions={[
+                {
+                  label: "Ver Detalles",
+                  onClick: (row) =>
+                    navigate(ROUTES.DETALLES_REPORTE, {
+                      state: { reporte: row, mode: "view" },
+                    }),
+                },
+              ]}
+              itemsPerPage={5}
+            />
+          )}
+        </div>
+
+        <Modal
+          isOpen={passwordModalOpen}
+          onClose={() => {
+            setPasswordModalOpen(false);
+            setResetPassword("");
+            setResetConfirmPassword("");
+          }}
+          title="Restablecer contraseña"
+          confirmText="Guardar"
+          onConfirm={() => {
+            setPasswordModalOpen(false);
+            setResetPassword("");
+            setResetConfirmPassword("");
+          }}
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+                Introduzca la contraseña
+              </p>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#F0F4FF]">
+                <span className="text-[#0040DF] shrink-0">
+                  <Lock size={14} />
+                </span>
+                <input
+                  type="password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="bg-transparent outline-none w-full text-sm text-gray-700 placeholder:text-gray-400"
+                />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+                Repita la contraseña
+              </p>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#F0F4FF]">
+                <span className="text-[#0040DF] shrink-0">
+                  <Lock size={14} />
+                </span>
+                <input
+                  type="password"
+                  value={resetConfirmPassword}
+                  onChange={(e) => setResetConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="bg-transparent outline-none w-full text-sm text-gray-700 placeholder:text-gray-400"
+                />
+              </div>
+            </div>
+          </div>
+        </Modal>
+      </div>
+    );
   }
 
   // ── EMPRESA VIEW ────────────────────────────────────────────────────────────
@@ -927,17 +1564,14 @@ export default function DetallesUsuario() {
   if (tipo === "empleado") {
     const rowE = state?.data;
     const empleado = {
-      id: rowE?.id
-        ? `EMP-${String(rowE.id).padStart(3, "0")}`
-        : EMPLEADO_MOCK.id,
-      nombreCompleto: (rowE?.nombre as string) ?? EMPLEADO_MOCK.nombreCompleto,
-      correo: (rowE?.correo as string) ?? EMPLEADO_MOCK.correo,
-      telefono: EMPLEADO_MOCK.telefono,
-      empresaAsociada:
-        (rowE?.empresa as string) ?? EMPLEADO_MOCK.empresaAsociada,
-      cargo: (rowE?.cargo as string) ?? EMPLEADO_MOCK.cargo,
-      estado: EMPLEADO_MOCK.estado,
-      miembroDesde: EMPLEADO_MOCK.miembroDesde,
+      id: rowE?.id ? String(rowE.id).slice(0, 8).toUpperCase() : "—",
+      fullId: (rowE?.id as string) ?? "",
+      nombreCompleto: (rowE?.nombre as string) ?? "—",
+      correo: (rowE?.correo as string) ?? "—",
+      telefono: (rowE?.telefono as string) || "—",
+      empresaAsociada: (rowE?.empresa as string) ?? "—",
+      estado: workerIsActive ? "Activo" : "Inactivo",
+      miembroDesde: rowE?.createdAt ? formatDate(rowE.createdAt as string) : "—",
     };
 
     return (
@@ -956,10 +1590,13 @@ export default function DetallesUsuario() {
           <h1 className="text-3xl font-bold text-gray-900">
             {isCreateMode ? "Nuevo Empleado" : "Detalle de Empleado"}
           </h1>
-          <Button
-            text={isCreateMode ? "Registrar" : "Guardar Cambio"}
-            variant_classes="btn-primary"
-          />
+          {isCreateMode && (
+            <Button
+              text={saving ? "Registrando..." : "Registrar"}
+              variant_classes="btn-primary"
+              onClick={!saving ? handleCreateEmployee : undefined}
+            />
+          )}
         </div>
 
         {/* Info card */}
@@ -992,9 +1629,6 @@ export default function DetallesUsuario() {
                   <div className="text-center">
                     <p className="font-bold text-gray-900 text-base">
                       {empleado.nombreCompleto}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {empleado.cargo}
                     </p>
                   </div>
                   <span className="px-3 py-1 rounded-full bg-[#EFF6FF] text-[#0040DF] text-xs font-semibold">
@@ -1042,19 +1676,12 @@ export default function DetallesUsuario() {
                           onClick={() => {
                             setEstadoRegistro("archivado");
                             setDropdownOpen(false);
+                            authService.deactivateWorker(empleado.fullId)
+                              .then(() => setWorkerIsActive(false))
+                              .catch(console.error);
                           }}
                         >
                           Archivar
-                        </button>
-                        <button
-                          type="button"
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer border-t border-gray-100"
-                          onClick={() => {
-                            setPasswordModalOpen(true);
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Restablecer contraseña
                         </button>
                         <button
                           type="button"
@@ -1062,20 +1689,37 @@ export default function DetallesUsuario() {
                           onClick={() => {
                             setEstadoRegistro(null);
                             setDropdownOpen(false);
+                            authService.activateWorker(empleado.fullId)
+                              .then(() => setWorkerIsActive(true))
+                              .catch(console.error);
                           }}
                         >
                           Restablecer
                         </button>
-                        <button
-                          type="button"
-                          className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 cursor-pointer border-t border-gray-100"
-                          onClick={() => {
-                            setDeleteModalOpen(true);
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Eliminar
-                        </button>
+                        {isAdmin && (
+                          <>
+                            <button
+                              type="button"
+                              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer border-t border-gray-100"
+                              onClick={() => {
+                                setPasswordModalOpen(true);
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              Restablecer contraseña
+                            </button>
+                            <button
+                              type="button"
+                              className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 cursor-pointer border-t border-gray-100"
+                              onClick={() => {
+                                setDeleteModalOpen(true);
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              Eliminar
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1085,11 +1729,16 @@ export default function DetallesUsuario() {
                 {isCreateMode || isAdmin ? (
                   <>
                     <EditableField
-                      label="Nombre Completo"
+                      label="Nombre"
                       value={nombre}
                       onChange={setNombre}
-                      placeholder="Nombre y apellido"
-                      colSpan
+                      placeholder="Nombre"
+                    />
+                    <EditableField
+                      label="Apellido"
+                      value={apellido}
+                      onChange={setApellido}
+                      placeholder="Apellido"
                     />
                     <EditableField
                       label="Correo Electrónico"
@@ -1105,23 +1754,19 @@ export default function DetallesUsuario() {
                       placeholder="+58 414 000 0000"
                       icon={<Phone size={14} />}
                     />
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
-                        Empresa Asociada
-                      </p>
-                      <SearchableSelect
-                        placeholder="Buscar empresa..."
-                        options={EMPRESAS_OPCIONES}
-                        value={empresaAsociada}
-                        onChange={setEmpresaAsociada}
-                      />
-                    </div>
-                    <EditableField
-                      label="Cargo"
-                      value={cargo}
-                      onChange={setCargo}
-                      placeholder="Ej. Inspector de Servicios"
-                    />
+                    {isAdmin && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+                          Empresa Asociada
+                        </p>
+                        <SearchableSelect
+                          placeholder="Buscar empresa..."
+                          options={EMPRESAS_OPCIONES}
+                          value={empresaAsociada}
+                          onChange={setEmpresaAsociada}
+                        />
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
@@ -1145,7 +1790,6 @@ export default function DetallesUsuario() {
                       value={empleado.empresaAsociada}
                       icon={<Building2 size={14} />}
                     />
-                    <Field label="Cargo" value={empleado.cargo} />
                   </>
                 )}
               </div>
@@ -1159,49 +1803,90 @@ export default function DetallesUsuario() {
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               Reportes Asignados
             </h2>
-            <List
-              data={REPORTES_EMPLEADO_DATA}
-              filters={[
-                { field: "servicio", label: "Servicio", type: "checkbox" },
-                { field: "estado", label: "Estado", type: "checkbox" },
-                { field: "tipo", label: "Buscar avería", type: "text" },
-              ]}
-              columns={[
-                {
-                  key: "servicio",
-                  header: "Tipo de Servicio",
-                  render: (row) => (
-                    <span className="text-gray-700">{row.servicio}</span>
-                  ),
-                },
-                {
-                  key: "tipo",
-                  header: "Tipo de Avería",
-                  render: (row) => (
-                    <span className="text-gray-700">{row.tipo}</span>
-                  ),
-                },
-                {
-                  key: "fecha",
-                  header: "Fecha",
-                  render: (row) => (
-                    <span className="text-gray-500">{row.fecha}</span>
-                  ),
-                },
-                {
-                  key: "estado",
-                  header: "Estado",
-                  render: (row) => <EstadoBadge estado={row.estado} />,
-                },
-              ]}
-              actions={[
-                {
-                  label: "Ver Detalles",
-                  onClick: () => navigate(ROUTES.DETALLES_REPORTE),
-                },
-              ]}
-              itemsPerPage={5}
-            />
+            {assignedReportsLoading ? (
+              <p className="text-sm text-gray-400 py-8 text-center">
+                Cargando reportes...
+              </p>
+            ) : assignedReports.length === 0 ? (
+              <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">
+                <p className="text-gray-500 font-medium">Sin reportes asignados</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Los reportes asignados a este empleado aparecerán aquí.
+                </p>
+              </div>
+            ) : (
+              <List
+                data={assignedReports.map(toReporteRow)}
+                filters={[
+                  { field: "servicio", label: "Servicio", type: "checkbox" },
+                  { field: "estado", label: "Estado", type: "checkbox" },
+                  { field: "tipo", label: "Buscar avería", type: "text" },
+                ]}
+                columns={[
+                  {
+                    key: "servicio",
+                    header: "Tipo de Servicio",
+                    render: (row) => (
+                      <span className="text-gray-700">{row.servicio}</span>
+                    ),
+                  },
+                  {
+                    key: "tipo",
+                    header: "Tipo de Avería",
+                    render: (row) => (
+                      <span className="text-gray-700">{row.tipo}</span>
+                    ),
+                  },
+                  {
+                    key: "fecha",
+                    header: "Fecha",
+                    render: (row) => (
+                      <span className="text-gray-500">{row.fecha}</span>
+                    ),
+                  },
+                  {
+                    key: "estado",
+                    header: "Estado",
+                    render: (row) => <EstadoBadge estado={row.estado} />,
+                  },
+                ]}
+                actions={[
+                  {
+                    label: "Ver Detalles",
+                    onClick: (row) => {
+                      const r = assignedReports.find((rep) => rep.id === row.id);
+                      if (!r) return;
+                      navigate(ROUTES.DETALLES_REPORTE, {
+                        state: {
+                          mode: "view",
+                          reporte: {
+                            id: r.id,
+                            correlativo: `#URB-${r.id.slice(0, 8).toUpperCase()}`,
+                            empresa: r.company?.name ?? "—",
+                            servicio: r.category.name,
+                            categoryId: r.category.id,
+                            tipoAveria: r.failureType?.name ?? "—",
+                            prioridad: r.priority,
+                            estado: r.state.name,
+                            sector: r.neighborhood?.name ?? "—",
+                            responsable: r.assignedManager
+                              ? `${r.assignedManager.name} ${r.assignedManager.lastname}`
+                              : "",
+                            creadoPor: `${r.user.name} ${r.user.lastname}`,
+                            descripcion: r.description,
+                            address: r.address ?? "",
+                            latitude: r.latitude,
+                            longitude: r.longitude,
+                            createdAt: r.createdAt,
+                          },
+                        },
+                      });
+                    },
+                  },
+                ]}
+                itemsPerPage={5}
+              />
+            )}
           </div>
         )}
         <Modal
@@ -1272,30 +1957,34 @@ export default function DetallesUsuario() {
   // ── REPORTANTE VIEW ─────────────────────────────────────────────────────────
   const rowR = state?.data;
   const reportante = {
-    id: isSelfView
-      ? (user?.id ?? "")
-      : String(rowR?.id ?? REPORTANTE_MOCK.id),
+    id: isSelfView ? (user?.id ?? "") : String(rowR?.id ?? REPORTANTE_MOCK.id),
     nombreCompleto: isSelfView
       ? `${nombre} ${apellido}`.trim()
-      : (rowR?.nombre as string) ?? REPORTANTE_MOCK.nombreCompleto,
+      : ((rowR?.nombre as string) ?? REPORTANTE_MOCK.nombreCompleto),
     correo: isSelfView
       ? (user?.email ?? "")
-      : (rowR?.email as string) ?? REPORTANTE_MOCK.correo,
+      : ((rowR?.email as string) ?? REPORTANTE_MOCK.correo),
     telefono: isSelfView
       ? (fetchedUserData?.phoneNumber ?? "...")
-      : (rowR?.telefono as string) ?? REPORTANTE_MOCK.telefono,
+      : ((rowR?.telefono as string) ?? REPORTANTE_MOCK.telefono),
     estado: isSelfView
-      ? (fetchedUserData ? (fetchedUserData.isActive ? "Activo" : "Inactivo") : "Activo")
-      : (rowR?.estado as string) ?? REPORTANTE_MOCK.estado,
+      ? fetchedUserData
+        ? fetchedUserData.isActive
+          ? "Activo"
+          : "Inactivo"
+        : "Activo"
+      : ((rowR?.estado as string) ?? REPORTANTE_MOCK.estado),
     miembroDesde: isSelfView
-      ? (fetchedUserData ? formatDate(fetchedUserData.createdAt) : "...")
+      ? fetchedUserData
+        ? formatDate(fetchedUserData.createdAt)
+        : "..."
       : REPORTANTE_MOCK.miembroDesde,
   };
 
   return (
     <div className="max-w-6xl mx-auto px-4 pb-10">
       {/* Back link — hidden when viewing own profile */}
-      {!isSelfView && (
+      {!isSelfView && !isAdminMiCuenta && (
         <button
           onClick={() => navigate(origen)}
           className="flex items-center gap-1.5 text-sm text-[#0040DF] font-medium hover:opacity-70 transition-opacity mb-3 cursor-pointer"
@@ -1308,12 +1997,22 @@ export default function DetallesUsuario() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-900">
-          {isCreateMode ? "Nuevo Reportante" : isSelfView ? "Mi Cuenta" : "Detalle de Usuario"}
+          {isCreateMode
+            ? "Nuevo Reportante"
+            : isSelfView || isAdminMiCuenta
+              ? "Mi Cuenta"
+              : "Detalle de Usuario"}
         </h1>
         <Button
-          text={isCreateMode ? "Registrar" : saving ? "Guardando..." : "Guardar Cambio"}
+          text={
+            isCreateMode
+              ? "Registrar"
+              : saving
+                ? "Guardando..."
+                : "Guardar Cambio"
+          }
           variant_classes="btn-primary"
-          onClick={isSelfView && !saving ? handleSaveCitizen : undefined}
+          onClick={(isSelfView || isAdminMiCuenta) && !saving ? handleSaveCitizen : undefined}
         />
       </div>
 
@@ -1531,7 +2230,11 @@ export default function DetallesUsuario() {
 
           {(!isSelfView || (!reportesLoading && reportes.length > 0)) && (
             <List
-              data={isSelfView ? reportes.map(toReporteRow) : REPORTES_REPORTANTE_DATA}
+              data={
+                isSelfView
+                  ? reportes.map(toReporteRow)
+                  : REPORTES_REPORTANTE_DATA
+              }
               filters={[
                 { field: "servicio", label: "Servicio", type: "checkbox" },
                 { field: "estado", label: "Estado", type: "checkbox" },
@@ -1579,6 +2282,7 @@ export default function DetallesUsuario() {
                           correlativo: `#URB-${r.id.slice(0, 8).toUpperCase()}`,
                           empresa: r.company?.name ?? "—",
                           servicio: r.category.name,
+                          categoryId: r.category.id,
                           tipoAveria: r.failureType?.name ?? "—",
                           prioridad: r.priority,
                           estado: r.state.name,
@@ -1587,6 +2291,11 @@ export default function DetallesUsuario() {
                             ? `${r.assignedManager.name} ${r.assignedManager.lastname}`
                             : "",
                           creadoPor: `${r.user.name} ${r.user.lastname}`,
+                          descripcion: r.description,
+                          address: r.address ?? "",
+                          latitude: r.latitude,
+                          longitude: r.longitude,
+                          createdAt: r.createdAt,
                         },
                       },
                     });

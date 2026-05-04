@@ -49,4 +49,6 @@ export const api = {
     axiosInstance.patch<T>(path, body).then((res) => res.data),
   delete: <T>(path: string) =>
     axiosInstance.delete<T>(path).then((res) => res.data),
+  postBlob: (path: string, body: unknown) =>
+    axiosInstance.post(path, body, { responseType: 'blob' }),
 };

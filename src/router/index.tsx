@@ -22,6 +22,7 @@ const NotFound = lazy(() => import("../pages/NotFound"));
 const Login = lazy(() => import("../pages/auth/Login"));
 const Register = lazy(() => import("../pages/auth/Register"));
 const RecoverPassword = lazy(() => import("../pages/auth/RecoverPassword"));
+const CompanySuccess = lazy(() => import("../pages/auth/CompanySuccess"));
 
 // Dashboards por rol
 const AdminDashboard = lazy(
@@ -39,6 +40,8 @@ const Usuarios = lazy(() => import("../pages/Usuarios"));
 const DetallesUsuario = lazy(() => import("../pages/DetallesUsuario"));
 const DetallesMetrica = lazy(() => import("../pages/DetallesMetrica"));
 const TiposAverias = lazy(() => import("../pages/TiposAverias"));
+const Soporte = lazy(() => import("../pages/Soporte"));
+const Solicitudes = lazy(() => import("../pages/Solicitudes"));
 const DashboardWorker = lazy(
   () => import("../pages/type-users/worker/DashboardWorker"),
 );
@@ -96,6 +99,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.LOGIN, element: <Login /> },
       { path: ROUTES.REGISTER, element: <Register /> },
       { path: ROUTES.RECOVER_PASSWORD, element: <RecoverPassword /> },
+      { path: ROUTES.COMPANY_SUCCESS, element: <CompanySuccess /> },
     ],
   },
 
@@ -120,6 +124,8 @@ export const router = createBrowserRouter([
       { path: ROUTES.METRICAS, element: <DetallesMetrica /> },
       { path: ROUTES.DETALLES_METRICA, element: <DetallesMetrica /> },
       { path: ROUTES.TIPOS_AVERIAS, element: <TiposAverias /> },
+      { path: ROUTES.SOPORTE, element: <Soporte /> },
+      { path: ROUTES.SOLICITUDES, element: <Solicitudes /> },
       { path: "/dashboard/worker", element: <DashboardWorker /> },
       { path: "/dashboard/citizen", element: <DashboardCitizen /> },
     ],

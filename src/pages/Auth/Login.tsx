@@ -9,10 +9,10 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail]       = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
@@ -24,7 +24,7 @@ export default function Login() {
       navigate(DASHBOARD_ROUTES[user.role]);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Correo o contraseña incorrectos."
+        err instanceof Error ? err.message : "Correo o contraseña incorrectos.",
       );
     } finally {
       setLoading(false);
@@ -76,12 +76,6 @@ export default function Login() {
             className="text-sm text-[#2563EB] hover:underline"
           >
             ¿Olvidaste tu contraseña?
-          </Link>
-          <Link
-            to={ROUTES.PRIVACY}
-            className="text-sm text-[#94A3B8] hover:underline"
-          >
-            Política de Privacidad
           </Link>
         </div>
 

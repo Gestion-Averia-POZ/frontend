@@ -13,6 +13,7 @@ export interface AuthUser {
   name: string;
   lastname: string;
   role: UserRole;
+  companyId?: string;
 }
 
 interface AuthContextType {
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: res.data.user.name,
       lastname: res.data.user.lastname,
       role: toFrontendRole(res.data.user.role),
+      ...(res.data.user.company?.id && { companyId: res.data.user.company.id }),
     };
 
     saveToken(res.data.token);

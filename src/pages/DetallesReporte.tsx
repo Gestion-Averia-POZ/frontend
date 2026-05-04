@@ -16,6 +16,7 @@ import CustomSelect from "../components/ui/CustomSelect";
 import { useAuth } from "../context/AuthContext";
 import { catalogService } from "../services/catalog.service";
 import { reportsService } from "../services/reports.service";
+import { authService } from "../services/auth.service";
 
 // ── Reutilizable: etiqueta + campo ──────────────
 function Field({
@@ -76,18 +77,25 @@ type ReporteState = {
   correlativo: string;
   empresa: string;
   servicio: string;
+  categoryId: string;
   tipoAveria: string;
   prioridad: string;
   estado: string;
   sector: string;
   responsable: string;
   creadoPor: string;
+  descripcion?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  createdAt?: string;
 };
 
 type LocationState = {
   mode?: "new" | "view";
   reporte?: ReporteState;
   counters?: { A: number; L: number; U: number };
+  companyView?: "dirigidos" | "propios";
 } | null;
 
 // ── Helpers de mapeo ─────────────────────────────
@@ -120,12 +128,26 @@ export default function DetallesReporte() {
   const isWorker = user?.role === "worker";
   const isAdmin = user?.role === "admin";
   const isCitizen = user?.role === "citizen";
+  const isCompany = user?.role === "company";
+  // Company viewing one of their own reports ("Mis Reportes") → same restrictions as citizen
+  const isCompanyOwnReport = isCompany && state?.companyView === "propios";
+
+  const isCompanyDirigidos = isCompany && !isCompanyOwnReport && isViewMode;
 
   const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
-  const [reportePinCoords, setReportePinCoords] = useState<[number, number] | undefined>(undefined);
+  const [reportePinCoords, setReportePinCoords] = useState<[number, number] | undefined>(() => {
+    if (reporte?.longitude != null && reporte?.latitude != null) {
+      return [reporte.longitude, reporte.latitude];
+    }
+    return undefined;
+  });
 
   // ro(field): true → campo de solo lectura
-  const ro = (field: string) => isViewMode || (isWorker && field !== "estado");
+  const ro = (field: string) => {
+    if (isCompanyDirigidos && isViewMode && (field === "estado" || field === "responsable")) return false;
+    if (isWorker && isViewMode && field === "estado") return false;
+    return isViewMode;
+  };
 
   const [imagenes, setImagenes] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -156,6 +178,10 @@ export default function DetallesReporte() {
   const [failureTypesMap, setFailureTypesMap]     = useState<Record<string, number>>({});
   const [categoriaId, setCategoriaId] = useState("");
 
+  // Workers (company view mode only)
+  const [workersOptions, setWorkersOptions] = useState<string[]>([]);
+  const [workersMap, setWorkersMap] = useState<Record<string, string>>({});
+
   // Load categories once on create mode
   useEffect(() => {
     if (isViewMode) return;
@@ -165,6 +191,18 @@ export default function DetallesReporte() {
       const catMap: Record<string, string> = {};
       cats.forEach((c) => { catMap[c.name] = c.id; });
       setCategoriesMap(catMap);
+    });
+  }, []);
+
+  // Fetch workers for company in view mode (only for "dirigidos", not own reports)
+  useEffect(() => {
+    if (!isViewMode || !isCompany || isCompanyOwnReport || !user?.name) return;
+    authService.getUsers({ role: "WORKER", companyName: user.name, limit: 100 }).then((res) => {
+      const workers = res.data.users;
+      setWorkersOptions(workers.map((w) => `${w.name} ${w.lastname}`));
+      const wMap: Record<string, string> = {};
+      workers.forEach((w) => { wMap[`${w.name} ${w.lastname}`] = w.id; });
+      setWorkersMap(wMap);
     });
   }, []);
 
@@ -194,7 +232,7 @@ export default function DetallesReporte() {
     setCompaniesMap({});
     if (name) {
       catalogService.getCompaniesByCategory(name).then((res) => {
-        const companies = res.data.companies;
+        const companies = res.data.companies.filter((c) => c.name !== user?.name);
         setCompaniesOptions(companies.map((c) => c.name));
         const compMap: Record<string, string> = {};
         companies.forEach((c) => { compMap[c.name] = c.id; });
@@ -214,41 +252,28 @@ export default function DetallesReporte() {
   const [estado, setEstado] = useState(
     reporte ? mapEstadoToForm(reporte.estado) : "En Proceso",
   );
-  const [descripcion, setDescripcion] = useState("");
-  const [calle, setCalle] = useState("");
+  const [descripcion, setDescripcion] = useState(reporte?.descripcion ?? "");
+  const [calle, setCalle] = useState(reporte?.address ?? "");
   const [vecindario, setVecindario] = useState(reporte?.sector ?? "");
-  const [viewCreatedAt, setViewCreatedAt] = useState("");
+  const [viewCreatedAt] = useState(() => {
+    if (!reporte?.createdAt) return "";
+    return new Date(reporte.createdAt).toLocaleDateString("es-VE", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+    });
+  });
   const [responsable, setResponsable] = useState(reporte?.responsable ?? "");
   const [empresa, setEmpresa] = useState(reporte?.empresa ?? "");
 
-  // Load full report detail in view mode (description, address, createdAt, coords, failure types)
+  // En modo view, solo el admin puede cambiar tipo de avería: carga las opciones del dropdown
   useEffect(() => {
-    if (!isViewMode || !reporte?.id) return;
-    reportsService.getById(String(reporte.id)).then((res) => {
-      const r = res.data.report;
-      const desc = r.description ?? "";
-      const addr = r.address ?? "";
-      const fecha = new Date(r.createdAt).toLocaleDateString("es-VE", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-      setDescripcion(desc);
-      setCalle(addr);
-      setViewCreatedAt(fecha);
-      if (r.longitude != null && r.latitude != null) {
-        setReportePinCoords([r.longitude, r.latitude]);
-      }
-      // Cargar tipos de avería de la categoría para tener los IDs disponibles en edición
-      if (r.category?.id) {
-        catalogService.getFailureTypesByCategory(r.category.id).then((ftRes) => {
-          const fts = ftRes.data.failureTypes;
-          setFailureTypesOptions(fts.map((ft) => ft.name));
-          const ftMap: Record<string, number> = {};
-          fts.forEach((ft) => { ftMap[ft.name] = ft.id; });
-          setFailureTypesMap(ftMap);
-        });
-      }
+    const catId = reporte?.categoryId;
+    if (!isViewMode || !catId || !isAdmin) return;
+    catalogService.getFailureTypesByCategory(catId).then((res) => {
+      const fts = res.data.failureTypes;
+      setFailureTypesOptions(fts.map((ft) => ft.name));
+      const ftMap: Record<string, number> = {};
+      fts.forEach((ft) => { ftMap[ft.name] = ft.id; });
+      setFailureTypesMap(ftMap);
     });
   }, []);
 
@@ -266,10 +291,41 @@ export default function DetallesReporte() {
   async function handleGuardarCambios() {
     if (!reporte?.id) return;
     try {
-      await reportsService.update(reporte.id, {
-        ...(descripcion.trim() && { description: descripcion.trim() }),
-        ...(failureTypesMap[tipoAveria] && { failureTypeId: failureTypesMap[tipoAveria] }),
-      });
+      const promises: Promise<unknown>[] = [];
+
+      if (isWorker) {
+        const workerEstadoMap: Record<string, "COMPLETADO" | "CANCELADO"> = {
+          "Completado": "COMPLETADO",
+          "Cancelado":  "CANCELADO",
+        };
+        const backendEstado = workerEstadoMap[estado];
+        if (backendEstado) {
+          promises.push(reportsService.updateStatus(reporte.id, backendEstado));
+        }
+      } else if (isCompanyDirigidos) {
+        const estadoBackendMap: Record<string, "PENDIENTE" | "EN_PROCESO" | "COMPLETADO" | "CANCELADO"> = {
+          "Pendiente":  "PENDIENTE",
+          "En Proceso": "EN_PROCESO",
+          "Completado": "COMPLETADO",
+          "Cancelado":  "CANCELADO",
+        };
+        const backendEstado = estadoBackendMap[estado];
+        if (backendEstado) {
+          promises.push(reportsService.updateStatus(reporte.id, backendEstado));
+        }
+        if (workersMap[responsable]) {
+          promises.push(reportsService.assign(reporte.id, workersMap[responsable]));
+        }
+      } else {
+        if (descripcion.trim() || failureTypesMap[tipoAveria]) {
+          promises.push(reportsService.update(reporte.id, {
+            ...(descripcion.trim() && { description: descripcion.trim() }),
+            ...(failureTypesMap[tipoAveria] && { failureTypeId: failureTypesMap[tipoAveria] }),
+          }));
+        }
+      }
+
+      await Promise.all(promises);
     } catch (err) {
       console.error("Error al guardar cambios:", err);
     }
@@ -429,7 +485,7 @@ export default function DetallesReporte() {
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="Tipo de Avería">
-                {isWorker ? (
+                {isWorker || isCompanyDirigidos ? (
                   <div className={inputClass} style={readonlyStyle}>
                     {tipoAveria || "—"}
                   </div>
@@ -452,17 +508,17 @@ export default function DetallesReporte() {
                 )}
               </Field>
               <Field label="Estado">
-                {isViewMode ? (
+                {ro("estado") ? (
                   <div className={inputClass} style={readonlyStyle}>
                     {estado || "—"}
                   </div>
                 ) : (
                   <CustomSelect
                     placeholder="Selecciona un estado"
-                    options={["En Proceso", "Pendiente", "Asignado", "Completado", "Archivado", "Cancelado"]}
+                    options={isWorker ? ["Cancelado", "Completado"] : ["Pendiente", "En Proceso", "Completado", "Cancelado"]}
                     value={estado}
                     onChange={setEstado}
-                    disabled={isCitizen}
+                    disabled={isCitizen || (isCompany && !isViewMode)}
                   />
                 )}
               </Field>
@@ -475,7 +531,7 @@ export default function DetallesReporte() {
                 className={`${inputClass} resize-none${isWorker ? " cursor-default" : ""}${!isViewMode && showErrors && !descripcion.trim() ? " ring-2 ring-red-400" : ""}`}
                 style={readonlyStyle}
                 value={descripcion}
-                readOnly={isWorker}
+                readOnly={isWorker || isCompanyDirigidos}
                 onChange={(e) => setDescripcion(e.target.value)}
               />
               {!isViewMode && showErrors && !descripcion.trim() && (
@@ -547,7 +603,7 @@ export default function DetallesReporte() {
               <div className="h-[260px] rounded-xl">
                 <Map
                   pinCoords={isViewMode ? reportePinCoords : undefined}
-                  editPin={!isViewMode && (isAdmin || isCitizen)}
+                  editPin={!isViewMode && (isAdmin || isCitizen || isCompany)}
                   onPinChange={async (coords) => {
                     setSelectedCoords(coords);
                     if (!coords) return;
@@ -609,25 +665,17 @@ export default function DetallesReporte() {
 
               <div className="col-span-2">
                 <Field label="Responsable Asignado">
-                  {!isViewMode ? (
+                  {!isViewMode || ro("responsable") ? (
                     <div className={inputClass} style={readonlyStyle}>
-                      —
-                    </div>
-                  ) : ro("responsable") ? (
-                    <div className={inputClass} style={readonlyStyle}>
-                      {responsable || "—"}
+                      {isViewMode ? (responsable || "—") : "—"}
                     </div>
                   ) : (
                     <CustomSelect
                       placeholder="Selecciona un responsable"
-                      options={[
-                        "Ing. Roberto Méndez",
-                        "Ing. Laura Castillo",
-                        "Téc. Pedro Suárez",
-                        "Téc. Ana Flores",
-                      ]}
+                      options={workersOptions}
                       value={responsable}
                       onChange={setResponsable}
+                      disabled={workersOptions.length === 0}
                     />
                   )}
                 </Field>
@@ -643,7 +691,7 @@ export default function DetallesReporte() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              {!isWorker && (
+              {!isWorker && !isCompanyDirigidos && (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}

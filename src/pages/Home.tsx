@@ -13,7 +13,6 @@ import {
   Mail,
   TextAlignStart,
   MessageSquareMore,
-  ChartColumnIncreasing,
 } from "lucide-react";
 import { Button, Card, Form } from "../components/ui";
 import { Map } from "../components/layout";
@@ -45,27 +44,28 @@ export default function Home() {
           <div className="hero-overlay"></div>
           <div className="hero-content mt-15 text-neutral-content text-center">
             <div className="max-w-2xl">
-              <h1 className="mb-5 text-6xl font-bold">
+              <h1
+                className="mb-5 text-6xl font-bold"
+                style={{ animation: "fadeIn 0.7s ease forwards" }}
+              >
                 Reporte de Averías de Servicios Básicos
               </h1>
-              <p className="mb-5">
+              <p
+                className="mb-5"
+                style={{ animation: "fadeIn 0.7s ease forwards" }}
+              >
                 Optimización de agua, electricidad y gestión de residuos en
                 tiempo real para una ciudad más inteligente
               </p>
-              <div className="flex justify-center">
+              <div
+                className="flex justify-center"
+                style={{ animation: "fadeIn 0.7s ease forwards" }}
+              >
                 <Link to={ROUTES.LOGIN}>
                   <Button
                     variant_classes="btn-primary mr-8  lg:btn-lg xl:btn-xl"
                     text="Comenzar Ahora"
                     icon={Send}
-                  />
-                </Link>
-
-                <Link to={ROUTES.METRICS}>
-                  <Button
-                    variant_classes="bg-white/10 backdrop-blur-md border-white/60 text-white font-bold  lg:btn-lg xl:btn-xl"
-                    text="Ver Estadísticas"
-                    icon={ChartColumnIncreasing}
                   />
                 </Link>
               </div>
@@ -91,19 +91,19 @@ export default function Home() {
         <div className="grid grid-cols-3 gap-6 mt-8">
           <Card
             title="Electricidad"
-            description="128 reportes activos · 43 en proceso · 85 resueltos esta semana"
+            description="128 reportes activos · 43 en proceso"
             icon={Zap}
             extraClasses="bg-amber-50"
           />
           <Card
             title="Agua"
-            description="97 reportes activos · 31 en proceso · 66 resueltos esta semana"
+            description="97 reportes activos · 31 en proceso"
             icon={Droplet}
             extraClasses="bg-blue-50"
           />
           <Card
             title="Aseo"
-            description="54 reportes activos · 18 en proceso · 36 resueltos esta semana"
+            description="54 reportes activos · 18 en proceso"
             icon={Trash2}
             extraClasses="bg-green-50"
           />
@@ -187,11 +187,13 @@ mantenimiento preventivo del servicio."
         </div>
 
         <div className="text-center mt-12">
-          <Button
-            text="Comenzar ahora"
-            variant_classes="btn-primary w-[300px] h-[60px] text-xl"
-            icon={Send}
-          />
+          <Link to={ROUTES.LOGIN}>
+            <Button
+              variant_classes="btn-primary mr-8  lg:btn-lg xl:btn-xl"
+              text="Comenzar Ahora"
+              icon={Send}
+            />
+          </Link>
         </div>
 
         <div className="mt-8 flex justify-center">

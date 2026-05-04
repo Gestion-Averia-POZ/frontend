@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Bell,
   LayoutDashboard,
   FileBarChart2,
   Users,
@@ -15,6 +14,9 @@ import {
   Wrench,
   Briefcase,
   AlertTriangle,
+  Inbox,
+  FileDiff,
+  Info,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES, DASHBOARD_ROUTES } from "../../constants";
@@ -96,15 +98,23 @@ function NavItem({
 
 export default function Sidebar() {
   const [usuariosOpen, setUsuariosOpen] = useState(true);
+  const [reportesOpen, setReportesOpen] = useState(true);
+  const [workerReportesOpen, setWorkerReportesOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const { logout, user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isCompany = user?.role === "company";
+  const isWorker = user?.role === "worker";
   const isCitizen = user?.role === "citizen";
   const navigate = useNavigate();
   const location = useLocation();
   const { pathname } = location;
-  const navState = location.state as { tipo?: string; origen?: string; mode?: string } | null;
+  const navState = location.state as {
+    tipo?: string;
+    origen?: string;
+    mode?: string;
+    companyView?: string;
+  } | null;
   const dashboardRoute = user ? DASHBOARD_ROUTES[user.role] : "/dashboard";
 
   function handleLogout() {
@@ -173,15 +183,18 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Notifications */}
-      <ul className="space-y-0.5 mb-3">
-        <NavItem
-          icon={<Bell size={18} />}
-          label="Notificaciones"
-          badge="15"
-          collapsed={collapsed}
-        />
-      </ul>
+      {/* Solicitudes — solo admin */}
+      {isAdmin && (
+        <ul className="space-y-0.5 mb-3">
+          <NavItem
+            icon={<Inbox size={18} />}
+            label="Solicitudes"
+            collapsed={collapsed}
+            onClick={() => navigate(ROUTES.SOLICITUDES)}
+            isActive={pathname === ROUTES.SOLICITUDES}
+          />
+        </ul>
+      )}
 
       <hr className="border-white/10 mb-3" />
 
@@ -221,15 +234,144 @@ export default function Sidebar() {
           />
         )}
 
-        <NavItem
-          icon={<FileBarChart2 size={18} />}
-          label="Reportes"
-          collapsed={collapsed}
-          isActive={pathname === ROUTES.REPORTES}
-          onClick={() => navigate(ROUTES.REPORTES)}
-        />
+        {isCompany ? (
+          <>
+            <NavItem
+              icon={<FileBarChart2 size={18} />}
+              label="Reportes"
+              collapsed={collapsed}
+              onClick={() => !collapsed && setReportesOpen((o) => !o)}
+              rightElement={
+                <ChevronRight
+                  size={16}
+                  style={{
+                    color: TEXT,
+                    transform: reportesOpen ? "rotate(90deg)" : "rotate(0deg)",
+                    transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                    flexShrink: 0,
+                  }}
+                />
+              }
+            />
+            <div
+              className="overflow-hidden"
+              style={{
+                maxHeight: reportesOpen && !collapsed ? "80px" : "0px",
+                opacity: reportesOpen && !collapsed ? 1 : 0,
+                transition:
+                  "max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease",
+              }}
+            >
+              <ul className="space-y-0.5 pt-0.5">
+                <NavItem
+                  icon={<Inbox size={17} />}
+                  label="Reportes Dirigidos"
+                  indent
+                  collapsed={collapsed}
+                  isActive={
+                    pathname === ROUTES.REPORTES &&
+                    navState?.companyView !== "propios"
+                  }
+                  onClick={() =>
+                    navigate(ROUTES.REPORTES, {
+                      state: { companyView: "dirigidos" },
+                    })
+                  }
+                />
 
-        {(isAdmin || isCompany) && (
+                <NavItem
+                  icon={<FileDiff size={17} />}
+                  label="Mis Reportes"
+                  indent
+                  collapsed={collapsed}
+                  isActive={
+                    pathname === ROUTES.REPORTES &&
+                    navState?.companyView === "propios"
+                  }
+                  onClick={() =>
+                    navigate(ROUTES.REPORTES, {
+                      state: { companyView: "propios" },
+                    })
+                  }
+                />
+              </ul>
+            </div>
+          </>
+        ) : isWorker ? (
+          <>
+            <NavItem
+              icon={<FileBarChart2 size={18} />}
+              label="Reportes"
+              collapsed={collapsed}
+              onClick={() => !collapsed && setWorkerReportesOpen((o) => !o)}
+              rightElement={
+                <ChevronRight
+                  size={16}
+                  style={{
+                    color: TEXT,
+                    transform: workerReportesOpen
+                      ? "rotate(90deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                    flexShrink: 0,
+                  }}
+                />
+              }
+            />
+            <div
+              className="overflow-hidden"
+              style={{
+                maxHeight: workerReportesOpen && !collapsed ? "80px" : "0px",
+                opacity: workerReportesOpen && !collapsed ? 1 : 0,
+                transition:
+                  "max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease",
+              }}
+            >
+              <ul className="space-y-0.5 pt-0.5">
+                <NavItem
+                  icon={<Inbox size={17} />}
+                  label="Reportes Dirigidos"
+                  indent
+                  collapsed={collapsed}
+                  isActive={
+                    pathname === ROUTES.REPORTES &&
+                    navState?.companyView !== "propios"
+                  }
+                  onClick={() =>
+                    navigate(ROUTES.REPORTES, {
+                      state: { companyView: "dirigidos" },
+                    })
+                  }
+                />
+                <NavItem
+                  icon={<FileDiff size={17} />}
+                  label="Mis Reportes"
+                  indent
+                  collapsed={collapsed}
+                  isActive={
+                    pathname === ROUTES.REPORTES &&
+                    navState?.companyView === "propios"
+                  }
+                  onClick={() =>
+                    navigate(ROUTES.REPORTES, {
+                      state: { companyView: "propios" },
+                    })
+                  }
+                />
+              </ul>
+            </div>
+          </>
+        ) : (
+          <NavItem
+            icon={<FileBarChart2 size={18} />}
+            label="Reportes"
+            collapsed={collapsed}
+            isActive={pathname === ROUTES.REPORTES}
+            onClick={() => navigate(ROUTES.REPORTES)}
+          />
+        )}
+
+        {isAdmin && (
           <NavItem
             icon={<AlertTriangle size={18} />}
             label="Tipos Averías"
@@ -245,7 +387,11 @@ export default function Sidebar() {
             icon={<Briefcase size={18} />}
             label="Empleados"
             collapsed={collapsed}
-            isActive={pathname === ROUTES.EMPLEADOS || (pathname === ROUTES.DETALLES_USUARIO && navState?.origen === ROUTES.EMPLEADOS)}
+            isActive={
+              pathname === ROUTES.EMPLEADOS ||
+              (pathname === ROUTES.DETALLES_USUARIO &&
+                navState?.origen === ROUTES.EMPLEADOS)
+            }
             onClick={() => navigate(ROUTES.EMPLEADOS)}
           />
         )}
@@ -286,7 +432,11 @@ export default function Sidebar() {
                   label="Empresas"
                   indent
                   collapsed={collapsed}
-                  isActive={pathname === ROUTES.EMPRESAS || (pathname === ROUTES.DETALLES_USUARIO && navState?.origen === ROUTES.EMPRESAS)}
+                  isActive={
+                    pathname === ROUTES.EMPRESAS ||
+                    (pathname === ROUTES.DETALLES_USUARIO &&
+                      navState?.origen === ROUTES.EMPRESAS)
+                  }
                   onClick={() => navigate(ROUTES.EMPRESAS)}
                 />
                 <NavItem
@@ -294,7 +444,11 @@ export default function Sidebar() {
                   label="Empleados"
                   indent
                   collapsed={collapsed}
-                  isActive={pathname === ROUTES.EMPLEADOS || (pathname === ROUTES.DETALLES_USUARIO && navState?.origen === ROUTES.EMPLEADOS)}
+                  isActive={
+                    pathname === ROUTES.EMPLEADOS ||
+                    (pathname === ROUTES.DETALLES_USUARIO &&
+                      navState?.origen === ROUTES.EMPLEADOS)
+                  }
                   onClick={() => navigate(ROUTES.EMPLEADOS)}
                 />
                 <NavItem
@@ -302,7 +456,11 @@ export default function Sidebar() {
                   label="Reportantes"
                   indent
                   collapsed={collapsed}
-                  isActive={pathname === ROUTES.REPORTANTES || (pathname === ROUTES.DETALLES_USUARIO && navState?.origen === ROUTES.REPORTANTES)}
+                  isActive={
+                    pathname === ROUTES.REPORTANTES ||
+                    (pathname === ROUTES.DETALLES_USUARIO &&
+                      navState?.origen === ROUTES.REPORTANTES)
+                  }
                   onClick={() => navigate(ROUTES.REPORTANTES)}
                 />
               </ul>
@@ -327,6 +485,16 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <ul className="space-y-0.5">
+        {/* Soporte — visible para todos los roles */}
+
+        <NavItem
+          icon={<Info size={18} />}
+          label="Soporte"
+          collapsed={collapsed}
+          onClick={() => navigate(ROUTES.SOPORTE)}
+          isActive={pathname === ROUTES.SOPORTE}
+        />
+
         <NavItem
           icon={<UserCircle size={18} />}
           label="Mi cuenta"

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { CirclePlus, ArrowLeft } from "lucide-react";
 import { ROUTES } from "../constants";
 import { Input, Modal } from "../components/ui";
 import { Map } from "../components/layout";
 import List from "../components/ui/LIst";
+import { reportsService, type BackendReport } from "../services/reports.service";
+import { catalogService, type CatalogFailureType } from "../services/catalog.service";
 import {
   LineChart,
   Line,
@@ -18,95 +20,168 @@ import {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ServicioState {
+  id: string;
   name: string;
-  subtitle: string;
-  iconColor: string;
-  cardBg: string;
+  bg: string;
+  text: string;
+  accent: string;
 }
 
-// ── Chart data ────────────────────────────────────────────────────────────────
+// ── Chart helpers ─────────────────────────────────────────────────────────────
 
-const DATA_SEMANAL = [
-  { label: "Sem 1", recibidos: 5, resueltos: 20 },
-  { label: "Sem 2", recibidos: 35, resueltos: 25 },
-  { label: "Sem 3", recibidos: 55, resueltos: 40 },
-  { label: "Sem 4", recibidos: 40, resueltos: 50 },
-  { label: "Sem 5", recibidos: 60, resueltos: 30 },
-];
+const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
-const DATA_DIARIO = [
-  { label: "Lun", recibidos: 8, resueltos: 5 },
-  { label: "Mar", recibidos: 15, resueltos: 10 },
-  { label: "Mié", recibidos: 12, resueltos: 14 },
-  { label: "Jue", recibidos: 20, resueltos: 9 },
-  { label: "Vie", recibidos: 18, resueltos: 16 },
-];
+function buildDailyData(reports: BackendReport[]) {
+  const today = new Date();
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - (6 - i));
+    const dayStr = d.toISOString().slice(0, 10);
+    const dayReports = reports.filter((r) => r.createdAt.slice(0, 10) === dayStr);
+    return {
+      label: DAY_LABELS[d.getDay()],
+      recibidos: dayReports.length,
+      resueltos: dayReports.filter((r) => r.state.name === "COMPLETADO").length,
+    };
+  });
+}
 
-// ── Per-service mock data ─────────────────────────────────────────────────────
+function buildWeeklyData(reports: BackendReport[]) {
+  const today = new Date();
+  return Array.from({ length: 5 }, (_, i) => {
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay() - (4 - i) * 7);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    const weekReports = reports.filter((r) => {
+      const d = new Date(r.createdAt);
+      return d >= weekStart && d <= weekEnd;
+    });
+    return {
+      label: `Sem ${i + 1}`,
+      recibidos: weekReports.length,
+      resueltos: weekReports.filter((r) => r.state.name === "COMPLETADO").length,
+    };
+  });
+}
 
-const SERVICE_DATA: Record<string, {
-  incidentTypes: { tipo: string; count: number; badge: string; badgeBg: string; badgeColor: string }[];
-  incidencias: { id: number; empresa: string; reportante: string; tipo: string; estado: string; prioridad: string; sector: string }[];
-}> = {
-  "Agua": {
-    incidentTypes: [
-      { tipo: "Tubería Rota",  count: 4,  badge: "Crítico",  badgeBg: "#FEE2E2", badgeColor: "#DC2626" },
-      { tipo: "Obstrucción",   count: 16, badge: "Moderado", badgeBg: "#FEF3C7", badgeColor: "#D97706" },
-      { tipo: "Fuga",          count: 8,  badge: "Moderado", badgeBg: "#FEF3C7", badgeColor: "#D97706" },
-      { tipo: "Instalación",   count: 5,  badge: "Normal",   badgeBg: "#DCFCE7", badgeColor: "#16A34A" },
-    ],
-    incidencias: [
-      { id: 1, empresa: "Aguas del Norte", reportante: "Carlos Pérez",   tipo: "Tubería Rota", estado: "Pendiente",  prioridad: "Alta",  sector: "Unare"         },
-      { id: 2, empresa: "Aguas del Norte", reportante: "María González",  tipo: "Obstrucción",  estado: "En Proceso", prioridad: "Media", sector: "Sierra Parima" },
-      { id: 3, empresa: "Aguas del Norte", reportante: "Luis Rodríguez",  tipo: "Fuga",         estado: "Pendiente",  prioridad: "Alta",  sector: "Unare"         },
-      { id: 4, empresa: "Aguas del Norte", reportante: "Ana Martínez",    tipo: "Instalación",  estado: "En Proceso", prioridad: "Media", sector: "Centro"        },
-      { id: 5, empresa: "Aguas del Norte", reportante: "Pedro Sánchez",   tipo: "Obstrucción",  estado: "Resuelto",   prioridad: "Baja",  sector: "La Llanada"    },
-    ],
-  },
-  "Electricidad": {
-    incidentTypes: [
-      { tipo: "Corte de Suministro",    count: 9,  badge: "Crítico",  badgeBg: "#FEE2E2", badgeColor: "#DC2626" },
-      { tipo: "Falla en Transformador", count: 3,  badge: "Crítico",  badgeBg: "#FEE2E2", badgeColor: "#DC2626" },
-      { tipo: "Alumbrado Fundido",      count: 12, badge: "Moderado", badgeBg: "#FEF3C7", badgeColor: "#D97706" },
-    ],
-    incidencias: [
-      { id: 1, empresa: "Energía Urbana",  reportante: "Roberto Díaz",     tipo: "Corte de Suministro",    estado: "Pendiente",  prioridad: "Alta",  sector: "Centro"        },
-      { id: 2, empresa: "Energía Urbana",  reportante: "Gabriela Sánchez", tipo: "Falla en Transformador", estado: "En Proceso", prioridad: "Alta",  sector: "Sierra Parima" },
-      { id: 3, empresa: "Metrogas Central",reportante: "Carlos Pérez",     tipo: "Alumbrado Fundido",      estado: "Resuelto",   prioridad: "Baja",  sector: "Unare"         },
-    ],
-  },
-  "Aseo Urbano": {
-    incidentTypes: [
-      { tipo: "Acumulación de Desechos", count: 21, badge: "Crítico",  badgeBg: "#FEE2E2", badgeColor: "#DC2626" },
-      { tipo: "Contenedor Dañado",       count: 7,  badge: "Moderado", badgeBg: "#FEF3C7", badgeColor: "#D97706" },
-      { tipo: "Ruta Omitida",            count: 4,  badge: "Normal",   badgeBg: "#DCFCE7", badgeColor: "#16A34A" },
-    ],
-    incidencias: [
-      { id: 1, empresa: "Limpieza Regional", reportante: "Ana Martínez",   tipo: "Acumulación de Desechos", estado: "Pendiente",  prioridad: "Alta",  sector: "La Llanada" },
-      { id: 2, empresa: "Limpieza Regional", reportante: "Pedro Sánchez",  tipo: "Contenedor Dañado",       estado: "En Proceso", prioridad: "Media", sector: "Unare"      },
-      { id: 3, empresa: "Limpieza Regional", reportante: "María González", tipo: "Ruta Omitida",            estado: "Resuelto",   prioridad: "Baja",  sector: "Centro"     },
-    ],
-  },
+// ── Badge helpers ─────────────────────────────────────────────────────────────
+
+const PRIORITY_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  CRITICA: { label: "Crítico",  bg: "#FEE2E2", color: "#DC2626" },
+  ALTA:    { label: "Crítico",  bg: "#FEE2E2", color: "#DC2626" },
+  MEDIA:   { label: "Moderado", bg: "#FEF3C7", color: "#D97706" },
+  BAJA:    { label: "Normal",   bg: "#DCFCE7", color: "#16A34A" },
 };
 
-const DEFAULT_SERVICE_DATA = SERVICE_DATA["Agua"];
+const ESTADO_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  PENDIENTE:  { label: "PENDIENTE",  bg: "#F1F5F9", color: "#64748B" },
+  EN_PROCESO: { label: "EN PROCESO", bg: "#FEF3C7", color: "#D97706" },
+  COMPLETADO: { label: "COMPLETADO", bg: "#DCFCE7", color: "#16A34A" },
+  CANCELADO:  { label: "CANCELADO",  bg: "#FEE2E2", color: "#DC2626" },
+};
+
+const PRIORITY_DOT: Record<string, { color: string; label: string }> = {
+  ALTA:  { color: "#EF4444", label: "Alta"  },
+  MEDIA: { color: "#F97316", label: "Media" },
+  BAJA:  { color: "#22C55E", label: "Baja"  },
+};
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DetallesServicio() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const servicio = (location.state as { servicio?: ServicioState } | null)?.servicio ?? null;
+  const serviceName = servicio?.name ?? "";
+
+  const [reports, setReports] = useState<BackendReport[]>([]);
+  const [failureTypes, setFailureTypes] = useState<CatalogFailureType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [vistaMetrica, setVistaMetrica] = useState<"diario" | "semanal">("semanal");
+
+  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nombreIncidencia, setNombreIncidencia] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [priority, setPriority] = useState("MEDIA");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [vistaMetrica, setVistaMetrica] = useState<"diario" | "semanal">("semanal");
+  function fetchData() {
+    if (!servicio?.id) return;
+    setIsLoading(true);
+    Promise.all([
+      reportsService.getAll({ categoryName: servicio.name, limit: 1000 }),
+      catalogService.getFailureTypesByCategory(servicio.id),
+    ])
+      .then(([rRes, ftRes]) => {
+        setReports(rRes.data.reports);
+        setFailureTypes(ftRes.data.failureTypes as CatalogFailureType[]);
+      })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }
 
-  const servicio = (location.state as { servicio?: ServicioState } | null)?.servicio;
-  const serviceName = servicio?.name ?? "Agua";
-  const serviceData = SERVICE_DATA[serviceName] ?? DEFAULT_SERVICE_DATA;
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [servicio?.id]);
 
-  const chartData = vistaMetrica === "semanal" ? DATA_SEMANAL : DATA_DIARIO;
+  // ── Computed ────────────────────────────────────────────────────────────────
+
+  const chartData =
+    vistaMetrica === "semanal" ? buildWeeklyData(reports) : buildDailyData(reports);
+
+  const ftWithCount = failureTypes.map((ft) => ({
+    ...ft,
+    count: reports.filter((r) => r.failureType?.id === ft.id).length,
+  }));
+
+  const topFailureTypes = [...ftWithCount].sort((a, b) => b.count - a.count).slice(0, 2);
+
+  const tableData = reports.map((r) => ({
+    id: r.id,
+    empresa: r.company?.name ?? "—",
+    reportante: `${r.user.name} ${r.user.lastname}`,
+    tipo: r.failureType?.name ?? "—",
+    estado: r.state.name,
+    prioridad: r.priority,
+    sector: r.neighborhood?.name ?? "—",
+    _raw: r,
+  }));
+
+  // ── Modal handlers ───────────────────────────────────────────────────────────
+
+  function resetModal() {
+    setNombreIncidencia("");
+    setDescripcion("");
+    setPriority("MEDIA");
+  }
+
+  async function handleConfirmModal() {
+    if (!nombreIncidencia.trim() || !servicio?.id) return;
+    setIsSaving(true);
+    try {
+      await catalogService.createFailureType({
+        name: nombreIncidencia.trim(),
+        description: descripcion.trim() || undefined,
+        priority,
+        categoryId: servicio.id,
+      });
+      setIsModalOpen(false);
+      resetModal();
+      fetchData();
+    } catch {
+      // silent
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="max-w-6xl mx-auto px-4 pb-10">
@@ -128,11 +203,8 @@ export default function DetallesServicio() {
       </div>
 
       {/* ── Section 1: Metrics Row ── */}
-      <div
-        className="grid gap-4 mb-6"
-        style={{ gridTemplateColumns: "3fr 1fr" }}
-      >
-        {/* Left card — Incidencias sobre la Temporalidad */}
+      <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "3fr 1fr" }}>
+        {/* Left — Incidencias sobre la Temporalidad */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-semibold text-gray-700">
@@ -161,83 +233,79 @@ export default function DetallesServicio() {
               </button>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: "#94a3b8" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "#94a3b8" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip />
-              <Line
-                dataKey="recibidos"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                dataKey="resueltos"
-                stroke="#f97316"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {isLoading ? (
+            <div className="h-[220px] flex items-center justify-center text-sm text-gray-400">
+              Cargando datos...
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip />
+                <Line dataKey="recibidos" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                <Line dataKey="resueltos" stroke="#f97316" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
-        {/* Right card — Averías Más Comunes */}
+        {/* Right — Averías Más Comunes */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">
-            Averías Más Comunes
-          </h3>
-          {serviceData.incidentTypes.slice(0, 2).map((item, idx) => (
-            <div
-              key={item.tipo}
-              className={`flex items-center justify-between py-3 ${idx < 1 ? "border-b border-gray-100" : ""}`}
-            >
-              <span className="text-sm text-gray-700">{item.tipo}</span>
-              <div className="flex items-center">
-                <span className="text-xl font-bold text-[#0040DF]">{item.count}</span>
-                <span
-                  className="text-xs rounded-full px-2 py-0.5 ml-2 font-medium"
-                  style={{ backgroundColor: item.badgeBg, color: item.badgeColor }}
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">Averías Más Comunes</h3>
+          {isLoading ? (
+            <p className="text-xs text-gray-400">Cargando...</p>
+          ) : topFailureTypes.length === 0 ? (
+            <p className="text-xs text-gray-400">Sin datos</p>
+          ) : (
+            topFailureTypes.map((item, idx) => {
+              const badge = PRIORITY_BADGE[item.priority] ?? PRIORITY_BADGE.BAJA;
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center justify-between py-3 ${idx < topFailureTypes.length - 1 ? "border-b border-gray-100" : ""}`}
                 >
-                  {item.badge}
-                </span>
-              </div>
-            </div>
-          ))}
+                  <span className="text-sm text-gray-700">{item.name}</span>
+                  <div className="flex items-center">
+                    <span className="text-xl font-bold text-[#0040DF]">{item.count}</span>
+                    <span
+                      className="text-xs rounded-full px-2 py-0.5 ml-2 font-medium"
+                      style={{ backgroundColor: badge.bg, color: badge.color }}
+                    >
+                      {badge.label}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
       {/* ── Section 2: Map + Incident Types ── */}
-      <div
-        className="grid gap-4 mb-6"
-        style={{ gridTemplateColumns: "3fr 1fr" }}
-      >
-        {/* Left column — Map */}
+      <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "3fr 1fr" }}>
+        {/* Left — Map */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">
-            Mapa de Incidencias
-          </h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Mapa de Incidencias</h3>
           <div className="h-[380px] rounded-xl">
-            <Map servicio={serviceName} />
+            <Map externalReports={reports} />
           </div>
         </div>
 
-        {/* Right column — Incident Types */}
+        {/* Right — Tipos de Incidencia */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">
-              Tipos de Incidencia
-            </h3>
+            <h3 className="text-sm font-semibold text-gray-700">Tipos de Incidencia</h3>
             <button
               onClick={() => setIsModalOpen(true)}
               className="cursor-pointer hover:opacity-70 transition-opacity text-[#0040DF]"
@@ -245,68 +313,61 @@ export default function DetallesServicio() {
               <CirclePlus size={20} />
             </button>
           </div>
-          {serviceData.incidentTypes.map((item) => (
-            <div
-              key={item.tipo}
-              className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0"
-            >
-              <span className="text-sm text-gray-700">{item.tipo}</span>
-              <span className="text-sm font-bold text-gray-900">{item.count}</span>
-            </div>
-          ))}
+          {isLoading ? (
+            <p className="text-xs text-gray-400">Cargando...</p>
+          ) : ftWithCount.length === 0 ? (
+            <p className="text-xs text-gray-400">Sin tipos registrados</p>
+          ) : (
+            ftWithCount.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0"
+              >
+                <span className="text-sm text-gray-700">{item.name}</span>
+                <span className="text-sm font-bold text-gray-900">{item.count}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
       {/* ── Section 3: Incidents list ── */}
       <section className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          Lista de Incidencias
-        </h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Lista de Incidencias</h2>
         <List
           filters={[
-            { field: "estado",      label: "Estado",            type: "checkbox" },
-            { field: "prioridad",   label: "Prioridad",         type: "checkbox" },
-            { field: "tipo",        label: "Tipo de Avería",    type: "checkbox" },
-            { field: "empresa",     label: "Buscar empresa",    type: "text"     },
-            { field: "reportante",  label: "Buscar reportante", type: "text"     },
+            { field: "estado",     label: "Estado",            type: "checkbox" },
+            { field: "prioridad",  label: "Prioridad",         type: "checkbox" },
+            { field: "tipo",       label: "Tipo de Avería",    type: "checkbox" },
+            { field: "empresa",    label: "Buscar empresa",    type: "text"     },
+            { field: "reportante", label: "Buscar reportante", type: "text"     },
           ]}
           renderRowId={(id) => (
             <span className="font-mono text-xs" style={{ color: "#64748B" }}>
-              #URB-{String(id).padStart(4, "0")}
+              #{String(id).slice(0, 8).toUpperCase()}
             </span>
           )}
           columns={[
             {
               key: "empresa",
               header: "Empresa",
-              render: (row) => (
-                <span className="font-bold text-gray-900">{row.empresa}</span>
-              ),
+              render: (row) => <span className="font-bold text-gray-900">{row.empresa}</span>,
             },
             {
               key: "reportante",
               header: "Reportante",
-              render: (row) => (
-                <span className="text-gray-700">{row.reportante}</span>
-              ),
+              render: (row) => <span className="text-gray-700">{row.reportante}</span>,
             },
             {
               key: "tipo",
               header: "Tipo de Avería",
-              render: (row) => (
-                <span className="text-gray-700">{row.tipo}</span>
-              ),
+              render: (row) => <span className="text-gray-700">{row.tipo}</span>,
             },
             {
               key: "estado",
               header: "Estado",
               render: (row) => {
-                const cfg: Record<string, { label: string; bg: string; color: string }> = {
-                  Pendiente:   { label: "PENDIENTE",  bg: "#F1F5F9", color: "#64748B" },
-                  "En Proceso":{ label: "EN PROCESO", bg: "#FEF3C7", color: "#D97706" },
-                  Resuelto:    { label: "COMPLETADO", bg: "#DCFCE7", color: "#16A34A" },
-                };
-                const s = cfg[row.estado] ?? { label: row.estado, bg: "#F1F5F9", color: "#64748B" };
+                const s = ESTADO_BADGE[row.estado] ?? { label: row.estado, bg: "#F1F5F9", color: "#64748B" };
                 return (
                   <span
                     className="px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -321,16 +382,11 @@ export default function DetallesServicio() {
               key: "prioridad",
               header: "Prioridad",
               render: (row) => {
-                const cfg: Record<string, { color: string }> = {
-                  Alta:  { color: "#EF4444" },
-                  Media: { color: "#F97316" },
-                  Baja:  { color: "#22C55E" },
-                };
-                const s = cfg[row.prioridad] ?? { color: "#64748B" };
+                const s = PRIORITY_DOT[row.prioridad] ?? { color: "#64748B", label: row.prioridad };
                 return (
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                    <span className="font-medium" style={{ color: s.color }}>{row.prioridad}</span>
+                    <span className="font-medium" style={{ color: s.color }}>{s.label}</span>
                   </div>
                 );
               },
@@ -338,32 +394,41 @@ export default function DetallesServicio() {
             {
               key: "sector",
               header: "Sector",
-              render: (row) => (
-                <span style={{ color: "#64748B" }}>{row.sector}</span>
-              ),
+              render: (row) => <span style={{ color: "#64748B" }}>{row.sector}</span>,
             },
           ]}
-          data={serviceData.incidencias}
+          data={tableData}
           actions={[
             {
               label: "Ver Detalles",
-              onClick: (row) =>
+              onClick: (row) => {
+                const r = row._raw as BackendReport;
                 navigate(ROUTES.DETALLES_REPORTE, {
                   state: {
                     reporte: {
-                      id: row.id,
-                      correlativo: `#URB-${String(row.id).padStart(4, "0")}`,
-                      empresa: row.empresa,
-                      servicio: serviceName,
-                      prioridad: row.prioridad,
-                      estado: row.estado,
-                      sector: row.sector,
-                      responsable: "",
-                      creadoPor: row.reportante,
+                      id: r.id,
+                      correlativo: `#${r.id.slice(0, 8).toUpperCase()}`,
+                      empresa: r.company?.name ?? "—",
+                      servicio: r.category.name,
+                      categoryId: r.category.id,
+                      tipoAveria: r.failureType?.name ?? "—",
+                      prioridad: r.priority,
+                      estado: r.state.name,
+                      sector: r.neighborhood?.name ?? "—",
+                      responsable: r.assignedManager
+                        ? `${r.assignedManager.name} ${r.assignedManager.lastname}`
+                        : "—",
+                      creadoPor: `${r.user.name} ${r.user.lastname}`,
+                      descripcion: r.description,
+                      address: r.address ?? undefined,
+                      latitude: r.latitude,
+                      longitude: r.longitude,
+                      createdAt: r.createdAt,
                     },
                     mode: "view",
                   },
-                }),
+                });
+              },
             },
           ]}
         />
@@ -372,18 +437,17 @@ export default function DetallesServicio() {
       {/* ── Modal: Nuevo Tipo de Incidencia ── */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Nuevo Tipo de Incidencia"
-        confirmText="Registrar"
-        cancelText="Cancelar"
-        onConfirm={() => {
-          setNombreIncidencia("");
-          setDescripcion("");
+        onClose={() => {
           setIsModalOpen(false);
+          resetModal();
         }}
+        title="Nuevo Tipo de Incidencia"
+        confirmText={isSaving ? "Guardando..." : "Registrar"}
+        cancelText="Cancelar"
+        onConfirm={handleConfirmModal}
       >
         <div className="flex flex-col gap-5">
-          {/* NOMBRE DE LA INCIDENCIA */}
+          {/* Nombre */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-widest text-gray-500">
               Nombre de la Incidencia
@@ -399,7 +463,24 @@ export default function DetallesServicio() {
             </div>
           </div>
 
-          {/* DESCRIPCIÓN */}
+          {/* Prioridad */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Prioridad
+            </label>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 bg-[#F0F4FF] text-sm outline-none text-gray-700"
+            >
+              <option value="BAJA">Baja</option>
+              <option value="MEDIA">Media</option>
+              <option value="ALTA">Alta</option>
+              <option value="CRITICA">Crítica</option>
+            </select>
+          </div>
+
+          {/* Descripción */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-widest text-gray-500">
               Descripción

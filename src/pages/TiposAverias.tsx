@@ -1,132 +1,131 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CirclePlus, PencilLine, Archive } from "lucide-react";
+import { CirclePlus, PencilLine } from "lucide-react";
 import { Input, Modal } from "../components/ui";
 import List from "../components/ui/LIst";
 import { ROUTES } from "../constants";
-import { useAuth } from "../context/AuthContext";
+import { catalogService, FullCategory, FullFailureType } from "../services/catalog.service";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Category badge colours (assigned by index) ────────────────────────────────
 
-type TipoAveria = {
-  id: number;
-  nombre: string;
-  descripcion: string;
-  categoria: string;
-  archived: boolean;
-};
-
-// ── Data ──────────────────────────────────────────────────────────────────────
-
-const INITIAL_TIPOS: TipoAveria[] = [
-  {
-    id: 1,
-    nombre: "Tubería Rota",
-    descripcion: "Ruptura en la tubería principal de suministro",
-    categoria: "Agua",
-    archived: false,
-  },
-  {
-    id: 2,
-    nombre: "Obstrucción",
-    descripcion: "Bloqueo parcial o total en la red de distribución",
-    categoria: "Agua",
-    archived: false,
-  },
-  {
-    id: 3,
-    nombre: "Fuga",
-    descripcion: "Pérdida de fluido en puntos de la red",
-    categoria: "Agua",
-    archived: false,
-  },
-  {
-    id: 4,
-    nombre: "Corte de Suministro",
-    descripcion: "Interrupción del servicio eléctrico en el sector",
-    categoria: "Electricidad",
-    archived: false,
-  },
-  {
-    id: 5,
-    nombre: "Falla en Transformador",
-    descripcion: "Daño o sobrecarga en transformador de distribución",
-    categoria: "Electricidad",
-    archived: false,
-  },
-  {
-    id: 6,
-    nombre: "Acumulación de Desechos",
-    descripcion: "Exceso de residuos sólidos sin recolección",
-    categoria: "Aseo Urbano",
-    archived: false,
-  },
+const BADGE_PALETTE: { bg: string; color: string }[] = [
+  { bg: "#DBEAFE", color: "#1E40AF" },
+  { bg: "#FEF9C3", color: "#854D0E" },
+  { bg: "#DCFCE7", color: "#166534" },
+  { bg: "#FCE7F3", color: "#9D174D" },
+  { bg: "#E0F2FE", color: "#0369A1" },
+  { bg: "#FEF3C7", color: "#92400E" },
+  { bg: "#F3F4F6", color: "#374151" },
 ];
 
-const CATEGORIA_CONFIG: Record<string, { bg: string; color: string }> = {
-  Agua: { bg: "#DBEAFE", color: "#1E40AF" },
-  Electricidad: { bg: "#FEF9C3", color: "#854D0E" },
-  "Aseo Urbano": { bg: "#DCFCE7", color: "#166534" },
-};
+const PRIORITY_OPTIONS = ["BAJA", "MEDIA", "ALTA", "CRITICA"] as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TiposAverias() {
   const navigate = useNavigate();
 
-  const [tiposData, setTiposData] = useState<TipoAveria[]>(INITIAL_TIPOS);
+  const [tiposData, setTiposData] = useState<FullFailureType[]>([]);
+  const [categories, setCategories] = useState<FullCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [nombreIncidencia, setNombreIncidencia] = useState("");
   const [descripcionModal, setDescripcionModal] = useState("");
+  const [selectedPriority, setSelectedPriority] = useState<string>("MEDIA");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [isArchived, setIsArchived] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  function fetchData() {
+    setIsLoading(true);
+    Promise.all([
+      catalogService.getAllFailureTypes(),
+      catalogService.getCategories(),
+    ])
+      .then(([ftRes, catRes]) => {
+        setTiposData(ftRes.data.failureTypes);
+        setCategories(catRes.data.categories as FullCategory[]);
+      })
+      .catch(() => setError("No se pudieron cargar los tipos de avería."))
+      .finally(() => setIsLoading(false));
+  }
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   function resetForm() {
     setNombreIncidencia("");
     setDescripcionModal("");
+    setSelectedPriority("MEDIA");
+    setSelectedCategoryId(categories[0]?.id ?? "");
     setIsArchived(false);
     setEditingItemId(null);
   }
 
-  function openEditModal(row: TipoAveria) {
-    setNombreIncidencia(row.nombre);
-    setDescripcionModal(row.descripcion);
-    setIsArchived(row.archived);
+  function openEditModal(row: FullFailureType) {
+    setNombreIncidencia(row.name);
+    setDescripcionModal(row.description ?? "");
+    setSelectedPriority(row.priority);
+    setSelectedCategoryId(row.categoryId ?? row.category?.id ?? "");
+    setIsArchived(false);
     setEditingItemId(row.id);
     setIsEditMode(true);
     setIsModalOpen(true);
   }
 
-  function handleConfirm() {
-    if (isEditMode && editingItemId !== null) {
-      setTiposData((prev) =>
-        prev.map((t) =>
-          t.id === editingItemId
-            ? {
-                ...t,
-                nombre: nombreIncidencia,
-                descripcion: descripcionModal,
-                archived: isArchived,
-              }
-            : t,
-        ),
-      );
+  async function handleConfirm() {
+    if (!nombreIncidencia.trim() || !selectedCategoryId) return;
+    setIsSaving(true);
+    try {
+      if (isEditMode && editingItemId !== null) {
+        if (isArchived) {
+          await catalogService.deleteFailureType(editingItemId);
+        } else {
+          await catalogService.updateFailureType(editingItemId, {
+            name: nombreIncidencia.trim(),
+            description: descripcionModal.trim() || undefined,
+            priority: selectedPriority,
+            categoryId: selectedCategoryId,
+          });
+        }
+      } else {
+        await catalogService.createFailureType({
+          name: nombreIncidencia.trim(),
+          description: descripcionModal.trim() || undefined,
+          priority: selectedPriority,
+          categoryId: selectedCategoryId,
+        });
+      }
+      setIsModalOpen(false);
+      resetForm();
+      fetchData();
+    } catch {
+      setError("No se pudo guardar el tipo de avería.");
+    } finally {
+      setIsSaving(false);
     }
-    setIsModalOpen(false);
-    resetForm();
   }
 
-  const { user } = useAuth();
-  const isCompany = user?.role === "company";
-  const companyCategorias = user?.categorias ?? [];
-
-  const visibleTipos = tiposData.filter((t) => {
-    if (showArchived ? !t.archived : t.archived) return false;
-    if (isCompany && !companyCategorias.includes(t.categoria)) return false;
-    return true;
+  // Build category-name → badge config map dynamically
+  const categoryBadgeMap: Record<string, { bg: string; color: string }> = {};
+  categories.forEach((cat, idx) => {
+    categoryBadgeMap[cat.name] = BADGE_PALETTE[idx % BADGE_PALETTE.length];
   });
+
+  // Rows for List: map FullFailureType to display shape
+  const listRows = tiposData.map((ft) => ({
+    id: ft.id,
+    nombre: ft.name,
+    descripcion: ft.description ?? "—",
+    categoria: ft.category?.name ?? "—",
+    priority: ft.priority,
+    _raw: ft,
+  }));
 
   return (
     <div className="max-w-6xl mx-auto px-4 pb-10">
@@ -155,87 +154,87 @@ export default function TiposAverias() {
         </button>
       </div>
 
+      {/* ── Loading / Error ── */}
+      {isLoading && (
+        <p className="text-sm text-gray-400 text-center py-8">Cargando tipos de avería...</p>
+      )}
+      {!isLoading && error && (
+        <p className="text-sm text-red-500 text-center py-8">{error}</p>
+      )}
+
       {/* ── List ── */}
-      <List
-        data={visibleTipos}
-        filters={[
-          { field: "nombre", label: "Nombre", type: "text" },
-          { field: "categoria", label: "Categoría", type: "checkbox" },
-        ]}
-        renderRowId={(id) => (
-          <span className="font-mono text-xs text-gray-400">
-            #AVR-{String(id).padStart(4, "0")}
-          </span>
-        )}
-        columns={[
-          {
-            key: "nombre",
-            header: "Nombre",
-            render: (row) => (
-              <span className="font-semibold text-gray-900">{row.nombre}</span>
-            ),
-          },
-          {
-            key: "descripcion",
-            header: "Descripción",
-            render: (row) => (
-              <span className="text-gray-700">{row.descripcion}</span>
-            ),
-          },
-          {
-            key: "categoria",
-            header: "Categoría",
-            render: (row) => {
-              const cfg = CATEGORIA_CONFIG[row.categoria] ?? {
-                bg: "#F1F5F9",
-                color: "#64748B",
-              };
-              return (
-                <span
-                  className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                  style={{ backgroundColor: cfg.bg, color: cfg.color }}
-                >
-                  {row.categoria}
-                </span>
-              );
+      {!isLoading && !error && (
+        <List
+          data={listRows}
+          filters={[
+            { field: "nombre", label: "Nombre", type: "text" },
+            { field: "categoria", label: "Categoría", type: "checkbox" },
+          ]}
+          renderRowId={(id) => (
+            <span className="font-mono text-xs text-gray-400">
+              #AVR-{String(id).padStart(4, "0")}
+            </span>
+          )}
+          columns={[
+            {
+              key: "nombre",
+              header: "Nombre",
+              render: (row) => (
+                <span className="font-semibold text-gray-900">{row.nombre}</span>
+              ),
             },
-          },
-        ]}
-        filterActions={
-          <button
-            onClick={() => setShowArchived(!showArchived)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
-              showArchived
-                ? "bg-gray-800 text-white border-gray-800"
-                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            <Archive size={14} />
-            Archivados
-          </button>
-        }
-        actions={[
-          {
-            label: "",
-            icon: PencilLine,
-            onClick: openEditModal,
-            className:
-              "flex items-center justify-center rounded-full w-9 h-9 bg-gray-100 hover:bg-gray-200 transition-colors",
-          },
-          {
-            label: "Ver Reportes",
-            onClick: (row) =>
-              navigate(ROUTES.REPORTES, {
-                state: {
-                  initialFilterState: {
-                    checkbox: { tipoAveria: [row.nombre] },
-                    text: {},
+            {
+              key: "descripcion",
+              header: "Descripción",
+              render: (row) => (
+                <span className="text-gray-700">{row.descripcion}</span>
+              ),
+            },
+            {
+              key: "categoria",
+              header: "Categoría",
+              render: (row) => {
+                const cfg = categoryBadgeMap[row.categoria] ?? {
+                  bg: "#F1F5F9",
+                  color: "#64748B",
+                };
+                return (
+                  <span
+                    className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                    style={{ backgroundColor: cfg.bg, color: cfg.color }}
+                  >
+                    {row.categoria}
+                  </span>
+                );
+              },
+            },
+          ]}
+          actions={[
+            {
+              label: "",
+              icon: PencilLine,
+              onClick: (row) => {
+                const ft = tiposData.find((t) => t.id === row.id);
+                if (ft) openEditModal(ft);
+              },
+              className:
+                "flex items-center justify-center rounded-full w-9 h-9 bg-gray-100 hover:bg-gray-200 transition-colors",
+            },
+            {
+              label: "Ver Reportes",
+              onClick: (row) =>
+                navigate(ROUTES.REPORTES, {
+                  state: {
+                    initialFilterState: {
+                      checkbox: { tipoAveria: [row.nombre] },
+                      text: {},
+                    },
                   },
-                },
-              }),
-          },
-        ]}
-      />
+                }),
+            },
+          ]}
+        />
+      )}
 
       {/* ── Modal ── */}
       <Modal
@@ -244,10 +243,8 @@ export default function TiposAverias() {
           setIsModalOpen(false);
           resetForm();
         }}
-        title={
-          isEditMode ? "Editar Tipo de Incidencia" : "Nuevo Tipo de Incidencia"
-        }
-        confirmText={isEditMode ? "Guardar Cambios" : "Registrar"}
+        title={isEditMode ? "Editar Tipo de Incidencia" : "Nuevo Tipo de Incidencia"}
+        confirmText={isSaving ? "Guardando..." : isEditMode ? "Guardar Cambios" : "Registrar"}
         cancelText="Cancelar"
         onConfirm={handleConfirm}
       >
@@ -260,7 +257,7 @@ export default function TiposAverias() {
             <div className="border border-gray-200 rounded-xl px-3 py-2 bg-[#F0F4FF]">
               <Input
                 typeInput="text"
-                placeholder="Ej. Mantenimiento"
+                placeholder="Ej. Tubería Rota"
                 value={nombreIncidencia}
                 onChange={setNombreIncidencia}
                 classes="text-sm border-none outline-none bg-transparent p-0 w-full"
@@ -282,30 +279,69 @@ export default function TiposAverias() {
             />
           </div>
 
-          {/* Archivar */}
-          <div className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-                Archivar
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                El tipo de incidencia no será visible en la lista principal
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsArchived(!isArchived)}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                isArchived ? "bg-gray-800" : "bg-gray-200"
-              }`}
+          {/* Categoría */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Categoría
+            </label>
+            <select
+              value={selectedCategoryId}
+              onChange={(e) => setSelectedCategoryId(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 bg-[#F0F4FF] text-sm w-full outline-none"
             >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                  isArchived ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
+              <option value="">Seleccionar categoría...</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
           </div>
+
+          {/* Prioridad */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Prioridad
+            </label>
+            <select
+              value={selectedPriority}
+              onChange={(e) => setSelectedPriority(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 bg-[#F0F4FF] text-sm w-full outline-none"
+            >
+              {PRIORITY_OPTIONS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Archivar (solo edición) */}
+          {isEditMode && (
+            <div className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                  Archivar
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  El tipo de incidencia dejará de estar disponible en el sistema
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsArchived(!isArchived)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                  isArchived ? "bg-gray-800" : "bg-gray-200"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    isArchived ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          )}
         </div>
       </Modal>
     </div>

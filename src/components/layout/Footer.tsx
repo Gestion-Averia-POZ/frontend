@@ -50,12 +50,6 @@ export default function Footer() {
           <div className="mb-2">
             <small>© 2026 Urbis. Todos los derechos reservados.</small>
           </div>
-
-          <div>
-            <nav>
-              <a className="link footer-link mr-6">Política de Privacidad</a>
-            </nav>
-          </div>
         </div>
       </div>
     </footer>

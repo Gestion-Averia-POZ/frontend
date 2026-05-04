@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { createRoot } from "react-dom/client";
@@ -23,6 +23,7 @@ interface SectorData {
   coords: [number, number];
   tipo: TipoServicio;
   reportes: { total: number; alta: number; media: number; baja: number };
+  categorias: string[];
 }
 
 interface TooltipState {
@@ -42,6 +43,7 @@ interface MapProps {
   pinCoords?: [number, number];
   editPin?: boolean;
   onPinChange?: (coords: [number, number] | null) => void;
+  externalReports?: BackendReport[];
 }
 
 // ─────────────────────────────────────────────
@@ -113,6 +115,8 @@ function buildSectors(reports: BackendReport[], filtro: Filtro): SectorData[] {
         ? filtro
         : ((Object.entries(tipoCounts).sort((a, b) => b[1] - a[1])[0]?.[0] as TipoServicio) || "luz");
 
+    const categorias = [...new Set(g.reports.map((r) => r.category.name))];
+
     return {
       name,
       coords: [avgLng, avgLat] as [number, number],
@@ -123,6 +127,7 @@ function buildSectors(reports: BackendReport[], filtro: Filtro): SectorData[] {
         media: g.reports.filter((r) => r.priority === "MEDIA").length,
         baja:  g.reports.filter((r) => r.priority === "BAJA").length,
       },
+      categorias,
     };
   });
 }
@@ -159,10 +164,14 @@ function createPinEl(color: string): { el: HTMLDivElement; root: Root } {
 // COMPONENTE MAP
 // ─────────────────────────────────────────────
 
-export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapProps) {
+export default function Map({ servicio, pinCoords, editPin, onPinChange, externalReports }: MapProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isReadonly = user?.role === "citizen" && !editPin && !pinCoords;
+  const isReadonly = !editPin && !pinCoords && (
+    user?.role === "citizen" ||
+    (user?.role === "company" && !externalReports) ||
+    (user?.role === "worker" && !externalReports)
+  );
   const isReadonlyRef = useRef(isReadonly);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -176,6 +185,22 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
 
   // Real reports data
   const [allReports, setAllReports] = useState<BackendReport[]>([]);
+
+  // Filtros disponibles: en modo externalReports solo las categorías presentes en esos reportes
+  const availableFiltros = useMemo<Filtro[]>(() => {
+    if (!externalReports) return ["todos", "luz", "agua", "aseo"];
+    const tipos = new Set(
+      externalReports
+        .map((r) => categoryToFiltro(r.category.name))
+        .filter((t): t is TipoServicio => t !== null),
+    );
+    return ["todos", ...(["luz", "agua", "aseo"] as TipoServicio[]).filter((t) => tipos.has(t))];
+  }, [externalReports]);
+
+  // Resetear filtro al cambiar entre Mi Empresa y Vista Global
+  useEffect(() => {
+    setFiltroActual("todos");
+  }, [externalReports]);
 
   // Cluster tooltip
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -199,10 +224,12 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
   const onPinChangeRef = useRef(onPinChange);
   useEffect(() => { editPinRef.current = editPin; }, [editPin]);
   useEffect(() => { onPinChangeRef.current = onPinChange; }, [onPinChange]);
+  useEffect(() => { isReadonlyRef.current = isReadonly; }, [isReadonly]);
 
   const marcadoresRef = useRef<
     Array<{ marker: maplibregl.Marker; tipo: TipoServicio; root: Root }>
   >([]);
+  const globalFetchedRef = useRef(false);
 
   const PZO_BOUNDS: [[number, number], [number, number]] = [
     [-62.83, 8.23],
@@ -313,20 +340,23 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
     };
   }, []);
 
-  // ── Fetch reports cuando el mapa carga en modo dashboard ──
+  // ── Fetch reports cuando el mapa carga o cuando se quita externalReports ──
   useEffect(() => {
-    if (!mapLoaded || editPin || pinCoords) return;
+    if (!mapLoaded || editPin || pinCoords || externalReports) return;
+    if (globalFetchedRef.current) return;
+    globalFetchedRef.current = true;
     reportsService
       .getAll({ limit: 1000 })
       .then((res) => setAllReports(res.data.reports))
       .catch(console.error);
-  }, [mapLoaded]);
+  }, [mapLoaded, externalReports]);
 
   // ── Actualiza heatmap + marcadores cuando cambian reportes o filtro ──
   useEffect(() => {
     if (!mapRef.current || !mapLoaded || editPin || pinCoords) return;
 
-    const sectors = buildSectors(allReports, filtroActivo);
+    const activeReports = externalReports ?? allReports;
+    const sectors = buildSectors(activeReports, filtroActivo);
 
     // Actualizar fuente del heatmap
     const source = mapRef.current.getSource("averias-source") as maplibregl.GeoJSONSource | undefined;
@@ -371,7 +401,7 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
 
       marcadoresRef.current.push({ marker, tipo: s.tipo, root });
     });
-  }, [allReports, filtroActivo, mapLoaded]);
+  }, [allReports, externalReports, filtroActivo, mapLoaded]);
 
   // ── Marcador pendiente en el mapa ──────────────
   useEffect(() => {
@@ -485,7 +515,7 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
       {/* ── Filtros de servicio ── */}
       {showFilters && (
         <div className="absolute top-3 right-3 z-10 flex gap-1 flex-wrap justify-end">
-          {(["todos", "luz", "agua", "aseo"] as Filtro[]).map((f) => {
+          {availableFiltros.map((f) => {
             const isActive = filtroActivo === f;
             const label =
               f === "todos" ? "Todos" : TIPOS_SERVICIO[f as TipoServicio].label;
@@ -603,8 +633,9 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange }: MapPr
                   state: {
                     initialFilterState: {
                       text: { sector: s.name },
-                      checkbox: { servicio: [TIPO_TO_SERVICIO[s.tipo]] },
+                      checkbox: { servicio: s.categorias },
                     },
+                    ...(externalReports && { companyView: "dirigidos" }),
                   },
                 });
               }}
