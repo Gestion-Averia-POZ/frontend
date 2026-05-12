@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { CirclePlus, ArrowLeft } from "lucide-react";
 import { ROUTES } from "../constants";
 import { Input, Modal } from "../components/ui";
 import { Map } from "../components/layout";
 import List from "../components/ui/LIst";
-import { reportsService, type BackendReport } from "../services/reports.service";
-import { catalogService, type CatalogFailureType } from "../services/catalog.service";
+import { type BackendReport } from "../services/reports.service";
+import { catalogService } from "../services/catalog.service";
+import { useAllReports, useFailureTypesByCategory, queryKeys } from "../hooks/useQueryHooks";
 import {
   LineChart,
   Line,
@@ -98,9 +100,14 @@ export default function DetallesServicio() {
   const servicio = (location.state as { servicio?: ServicioState } | null)?.servicio ?? null;
   const serviceName = servicio?.name ?? "";
 
-  const [reports, setReports] = useState<BackendReport[]>([]);
-  const [failureTypes, setFailureTypes] = useState<CatalogFailureType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: reports = [], isLoading: loadingReports } = useAllReports(
+    { categoryName: serviceName, limit: 1000 },
+    !!servicio?.id,
+  );
+  const { data: failureTypes = [], isLoading: loadingFt } = useFailureTypesByCategory(servicio?.id ?? "");
+  const isLoading = loadingReports || loadingFt;
+
   const [vistaMetrica, setVistaMetrica] = useState<"diario" | "semanal">("semanal");
 
   // Modal state
@@ -109,26 +116,6 @@ export default function DetallesServicio() {
   const [descripcion, setDescripcion] = useState("");
   const [priority, setPriority] = useState("MEDIA");
   const [isSaving, setIsSaving] = useState(false);
-
-  function fetchData() {
-    if (!servicio?.id) return;
-    setIsLoading(true);
-    Promise.all([
-      reportsService.getAll({ categoryName: servicio.name, limit: 1000 }),
-      catalogService.getFailureTypesByCategory(servicio.id),
-    ])
-      .then(([rRes, ftRes]) => {
-        setReports(rRes.data.reports);
-        setFailureTypes(ftRes.data.failureTypes as CatalogFailureType[]);
-      })
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
-  }
-
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [servicio?.id]);
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
@@ -173,7 +160,7 @@ export default function DetallesServicio() {
       });
       setIsModalOpen(false);
       resetModal();
-      fetchData();
+      queryClient.invalidateQueries({ queryKey: queryKeys.catalog.failureTypesByCategory(servicio!.id) });
     } catch {
       // silent
     } finally {

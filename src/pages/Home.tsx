@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ChartNoAxesCombined,
   Check,
@@ -15,11 +15,26 @@ import {
   MessageSquareMore,
 } from "lucide-react";
 import { Button, Card, Form } from "../components/ui";
-import { Map } from "../components/layout";
+import { PublicHeatMap } from "../components/layout";
 import { ROUTES } from "../constants";
 import { Zap, Droplet, Trash2 } from "lucide-react";
+import { API_URL } from "../config";
+import type { HeatmapData, HeatmapPoint } from "../types/heatmap";
 
 export default function Home() {
+  const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
+  const [heatmapTotals, setHeatmapTotals] = useState<HeatmapData["totals"] | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_URL}/heatmap-data.json`)
+      .then((r) => r.json())
+      .then((data: HeatmapData) => {
+        setHeatmapPoints(data.points);
+        setHeatmapTotals(data.totals);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (location.hash) {
       const id = location.hash.replace("#", "");
@@ -83,27 +98,39 @@ export default function Home() {
         </div>
 
         {/* Mapa a ancho completo */}
-        <div className="h-[480px] w-full mt-12">
-          <Map />
+        <div className="relative h-[480px] w-full mt-12 rounded-xl shadow-lg overflow-hidden">
+          <PublicHeatMap points={heatmapPoints} />
         </div>
 
         {/* Cards de resumen por servicio — 3 columnas debajo del mapa */}
         <div className="grid grid-cols-3 gap-6 mt-8">
           <Card
             title="Electricidad"
-            description="128 reportes activos · 43 en proceso"
+            description={
+              heatmapTotals
+                ? `${heatmapTotals.byServiceType.luz} reportes activos`
+                : "Cargando..."
+            }
             icon={Zap}
             extraClasses="bg-amber-50"
           />
           <Card
             title="Agua"
-            description="97 reportes activos · 31 en proceso"
+            description={
+              heatmapTotals
+                ? `${heatmapTotals.byServiceType.agua} reportes activos`
+                : "Cargando..."
+            }
             icon={Droplet}
             extraClasses="bg-blue-50"
           />
           <Card
             title="Aseo"
-            description="54 reportes activos · 18 en proceso"
+            description={
+              heatmapTotals
+                ? `${heatmapTotals.byServiceType.aseo} reportes activos`
+                : "Cargando..."
+            }
             icon={Trash2}
             extraClasses="bg-green-50"
           />
@@ -140,9 +167,7 @@ coordinación interdepartamental."
             />
             <Card
               title="Optimización"
-              description="Utilizamos analítica predictiva para
-identificar fallas recurrentes y optimizar el
-mantenimiento preventivo del servicio."
+              description="Utilizamos analisis de datos para identificar fallas comunes y optimizar la calidad de servicios."
               icon={ChartNoAxesCombined}
               extraClasses="w-[384px]"
             />

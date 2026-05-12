@@ -14,9 +14,8 @@ import { Map } from "../components/layout";
 import { Button } from "../components/ui";
 import CustomSelect from "../components/ui/CustomSelect";
 import { useAuth } from "../context/AuthContext";
-import { catalogService } from "../services/catalog.service";
+import { useCategories, useFailureTypesByCategory, useCompaniesByCategory, useWorkers } from "../hooks/useQueryHooks";
 import { reportsService } from "../services/reports.service";
-import { authService } from "../services/auth.service";
 
 // ── Reutilizable: etiqueta + campo ──────────────
 function Field({
@@ -169,77 +168,17 @@ export default function DetallesReporte() {
 
   const [showErrors, setShowErrors] = useState(false);
 
-  // ── Catalog data (create mode) ────────────────
+  // ── Catalog data ─────────────────────────────
   const [companiesOptions, setCompaniesOptions] = useState<string[]>([]);
   const [companiesMap, setCompaniesMap]           = useState<Record<string, string>>({});
   const [categoriesOptions, setCategoriesOptions] = useState<string[]>([]);
   const [categoriesMap, setCategoriesMap]         = useState<Record<string, string>>({});
   const [failureTypesOptions, setFailureTypesOptions] = useState<string[]>([]);
   const [failureTypesMap, setFailureTypesMap]     = useState<Record<string, number>>({});
-  const [categoriaId, setCategoriaId] = useState("");
 
   // Workers (company view mode only)
   const [workersOptions, setWorkersOptions] = useState<string[]>([]);
   const [workersMap, setWorkersMap] = useState<Record<string, string>>({});
-
-  // Load categories once on create mode
-  useEffect(() => {
-    if (isViewMode) return;
-    catalogService.getCategories().then((categoriesRes) => {
-      const cats = categoriesRes.data.categories;
-      setCategoriesOptions(cats.map((c) => c.name));
-      const catMap: Record<string, string> = {};
-      cats.forEach((c) => { catMap[c.name] = c.id; });
-      setCategoriesMap(catMap);
-    });
-  }, []);
-
-  // Fetch workers for company in view mode (only for "dirigidos", not own reports)
-  useEffect(() => {
-    if (!isViewMode || !isCompany || isCompanyOwnReport || !user?.name) return;
-    authService.getUsers({ role: "WORKER", companyName: user.name, limit: 100 }).then((res) => {
-      const workers = res.data.users;
-      setWorkersOptions(workers.map((w) => `${w.name} ${w.lastname}`));
-      const wMap: Record<string, string> = {};
-      workers.forEach((w) => { wMap[`${w.name} ${w.lastname}`] = w.id; });
-      setWorkersMap(wMap);
-    });
-  }, []);
-
-  // Fetch failure types when a category is selected
-  useEffect(() => {
-    if (!categoriaId) return;
-    catalogService
-      .getFailureTypesByCategory(categoriaId)
-      .then((res) => {
-        const fts = res.data.failureTypes;
-        setFailureTypesOptions(fts.map((ft) => ft.name));
-        const ftMap: Record<string, number> = {};
-        fts.forEach((ft) => { ftMap[ft.name] = ft.id; });
-        setFailureTypesMap(ftMap);
-      });
-  }, [categoriaId]);
-
-  function handleCategoriaChange(name: string) {
-    setCategoria(name);
-    const id = categoriesMap[name] ?? "";
-    setCategoriaId(id);
-    setTipoAveria("");
-    setEmpresa("");
-    setFailureTypesOptions([]);
-    setFailureTypesMap({});
-    setCompaniesOptions([]);
-    setCompaniesMap({});
-    if (name) {
-      catalogService.getCompaniesByCategory(name).then((res) => {
-        const companies = res.data.companies.filter((c) => c.name !== user?.name);
-        setCompaniesOptions(companies.map((c) => c.name));
-        const compMap: Record<string, string> = {};
-        companies.forEach((c) => { compMap[c.name] = c.id; });
-        setCompaniesMap(compMap);
-      });
-    }
-  }
 
   // ── Correlativo ───────────────────────────────
   const [correlativo] = useState(reporte?.correlativo ?? "");
@@ -248,6 +187,7 @@ export default function DetallesReporte() {
   const [categoria, setCategoria] = useState(
     reporte ? mapServicioToCategoria(reporte.servicio) : "",
   );
+  const [categoriaId, setCategoriaId] = useState(reporte?.categoryId ?? "");
   const [tipoAveria, setTipoAveria] = useState(reporte?.tipoAveria ?? "");
   const [estado, setEstado] = useState(
     reporte ? mapEstadoToForm(reporte.estado) : "En Proceso",
@@ -264,18 +204,60 @@ export default function DetallesReporte() {
   const [responsable, setResponsable] = useState(reporte?.responsable ?? "");
   const [empresa, setEmpresa] = useState(reporte?.empresa ?? "");
 
-  // En modo view, solo el admin puede cambiar tipo de avería: carga las opciones del dropdown
+  const shouldFetchWorkers = isViewMode && isCompany && !isCompanyOwnReport && !!user?.name;
+  const { data: _categories = [] } = useCategories();
+  const { data: _failureTypes = [] } = useFailureTypesByCategory(categoriaId);
+  const { data: _companies = [] } = useCompaniesByCategory(!isViewMode ? categoria : "");
+  const { data: _workers = [] } = useWorkers(user?.name, shouldFetchWorkers);
+
+  // Bridge: categories → options/map (create mode only)
   useEffect(() => {
-    const catId = reporte?.categoryId;
-    if (!isViewMode || !catId || !isAdmin) return;
-    catalogService.getFailureTypesByCategory(catId).then((res) => {
-      const fts = res.data.failureTypes;
-      setFailureTypesOptions(fts.map((ft) => ft.name));
-      const ftMap: Record<string, number> = {};
-      fts.forEach((ft) => { ftMap[ft.name] = ft.id; });
-      setFailureTypesMap(ftMap);
-    });
-  }, []);
+    if (isViewMode || !_categories.length) return;
+    setCategoriesOptions(_categories.map((c) => c.name));
+    const m: Record<string, string> = {};
+    _categories.forEach((c) => { m[c.name] = c.id; });
+    setCategoriesMap(m);
+  }, [_categories, isViewMode]);
+
+  // Bridge: failure types → options/map (create mode + admin view mode)
+  useEffect(() => {
+    if (!_failureTypes.length) return;
+    setFailureTypesOptions(_failureTypes.map((ft) => ft.name));
+    const m: Record<string, number> = {};
+    _failureTypes.forEach((ft) => { m[ft.name] = ft.id; });
+    setFailureTypesMap(m);
+  }, [_failureTypes]);
+
+  // Bridge: companies by category → options/map (create mode only)
+  useEffect(() => {
+    if (isViewMode || !_companies.length) return;
+    const filtered = _companies.filter((c) => c.name !== user?.name);
+    setCompaniesOptions(filtered.map((c) => c.name));
+    const m: Record<string, string> = {};
+    filtered.forEach((c) => { m[c.name] = c.id; });
+    setCompaniesMap(m);
+  }, [_companies, isViewMode]);
+
+  // Bridge: workers → options/map (company directed view only)
+  useEffect(() => {
+    if (!shouldFetchWorkers || !_workers.length) return;
+    setWorkersOptions(_workers.map((w) => `${w.name} ${w.lastname}`));
+    const m: Record<string, string> = {};
+    _workers.forEach((w) => { m[`${w.name} ${w.lastname}`] = w.id; });
+    setWorkersMap(m);
+  }, [_workers, shouldFetchWorkers]);
+
+  function handleCategoriaChange(name: string) {
+    setCategoria(name);
+    const id = categoriesMap[name] ?? "";
+    setCategoriaId(id);
+    setTipoAveria("");
+    setEmpresa("");
+    setFailureTypesOptions([]);
+    setFailureTypesMap({});
+    setCompaniesOptions([]);
+    setCompaniesMap({});
+  }
 
   const tiposAveria = failureTypesOptions.length > 0
     ? failureTypesOptions

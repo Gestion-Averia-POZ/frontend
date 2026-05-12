@@ -23,13 +23,7 @@ import {
   reportsService,
   type BackendReport,
 } from "../services/reports.service";
-
-const EMPRESAS_OPCIONES = [
-  "Aguas del Norte",
-  "Metrogas Central",
-  "Energía Urbana",
-  "Limpieza Regional",
-];
+import { catalogService } from "../services/catalog.service";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -41,146 +35,6 @@ interface NavState {
   mode?: "create" | "view";
   data?: Record<string, unknown>;
 }
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
-
-const EMPRESA_MOCK = {
-  id: "EMP-001",
-  nombre: "Aguas del Norte",
-  correo: "contacto@aguasdelnorte.com",
-  telefono: "+58 212 555 0100",
-  direccion: "Av. Principal, Torre Empresarial, Piso 5, Caracas",
-  miembroDesde: "Ene 2021",
-  estado: "Activo",
-};
-
-const EMPLEADOS_DATA = [
-  {
-    id: 1,
-    nombre: "Carlos Pérez",
-    telefono: "+58 412 123 4567",
-    email: "carlos@aguasdelnorte.com",
-  },
-  {
-    id: 2,
-    nombre: "María González",
-    telefono: "+58 424 765 4321",
-    email: "maria@aguasdelnorte.com",
-  },
-  {
-    id: 3,
-    nombre: "Luis Rodríguez",
-    telefono: "+58 416 234 5678",
-    email: "luis@aguasdelnorte.com",
-  },
-];
-
-const REPORTES_EMPRESA_DATA = [
-  {
-    id: 1,
-    servicio: "Agua",
-    tipo: "Tubería Rota",
-    fecha: "12 May, 2024",
-    estado: "Atendido",
-  },
-  {
-    id: 2,
-    servicio: "Agua",
-    tipo: "Obstrucción",
-    fecha: "15 May, 2024",
-    estado: "En Revisión",
-  },
-  {
-    id: 3,
-    servicio: "Agua",
-    tipo: "Fuga",
-    fecha: "20 May, 2024",
-    estado: "Pendiente",
-  },
-  {
-    id: 4,
-    servicio: "Agua",
-    tipo: "Instalación",
-    fecha: "22 May, 2024",
-    estado: "Atendido",
-  },
-];
-
-const REPORTANTE_MOCK = {
-  id: "29.384.102-K",
-  nombreCompleto: "Alejandro Javier Mendoza Ruiz",
-  correo: "a.mendoza@email.com",
-  telefono: "+56 9 8273 1920",
-  miembroDesde: "Oct 2022",
-  estado: "Activo",
-};
-
-const REPORTES_REPORTANTE_DATA = [
-  {
-    id: 8291,
-    servicio: "Agua",
-    tipo: "Fuga de agua en vía pública",
-    fecha: "12 May, 2024",
-    estado: "Atendido",
-  },
-  {
-    id: 8304,
-    servicio: "Luz",
-    tipo: "Luminaria fundida en parque",
-    fecha: "15 May, 2024",
-    estado: "En Revisión",
-  },
-  {
-    id: 8342,
-    servicio: "Vialidad",
-    tipo: "Bache profundo en calzada",
-    fecha: "Hoy, 09:30",
-    estado: "Pendiente",
-  },
-];
-
-const EMPLEADO_MOCK = {
-  id: "EMP-007",
-  nombre: "Jorge",
-  apellido: "Martínez",
-  nombreCompleto: "Jorge Martínez",
-  correo: "j.martinez@urbis.com",
-  telefono: "+58 414 987 6543",
-  empresaAsociada: "Aguas del Norte",
-  miembroDesde: "Mar 2022",
-  estado: "Activo",
-};
-
-const REPORTES_EMPLEADO_DATA = [
-  {
-    id: 3021,
-    servicio: "Agua",
-    tipo: "Tubería Rota",
-    fecha: "10 May, 2024",
-    estado: "Atendido",
-  },
-  {
-    id: 3045,
-    servicio: "Electricidad",
-    tipo: "Cable expuesto",
-    fecha: "14 May, 2024",
-    estado: "En Revisión",
-  },
-  {
-    id: 3067,
-    servicio: "Agua",
-    tipo: "Fuga en medidor",
-    fecha: "18 May, 2024",
-    estado: "Pendiente",
-  },
-  {
-    id: 3089,
-    servicio: "Aseo Urbano",
-    tipo: "Contenedor dañado",
-    fecha: "21 May, 2024",
-    estado: "Atendido",
-  },
-];
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -384,6 +238,13 @@ export default function DetallesUsuario() {
   );
   const [assignedReports, setAssignedReports] = useState<BackendReport[]>([]);
   const [assignedReportsLoading, setAssignedReportsLoading] = useState(isWorkerMiCuenta);
+  const [empresasOpciones, setEmpresasOpciones] = useState<string[]>([]);
+
+  // Reportante view data (admin)
+  const [reportanteReports, setReportanteReports] = useState<BackendReport[]>([]);
+  const [reportanteReportsLoading, setReportanteReportsLoading] = useState(
+    tipo === "reportante" && !isSelfView && !isCreateMode,
+  );
 
   // Company self-view data
   const [companyWorkers, setCompanyWorkers] = useState<BackendUserProfile[]>(
@@ -437,43 +298,41 @@ export default function DetallesUsuario() {
     if (isCreateMode || !isAdmin || isAdminMiCuenta) return;
     const row = state?.data as Record<string, unknown> | undefined;
     if (tipo === "empresa") {
-      setNombre(String(row?.nombre ?? EMPRESA_MOCK.nombre));
-      setCorreo(String(row?.correo ?? EMPRESA_MOCK.correo));
-      setTelefono(String(row?.telefono ?? EMPRESA_MOCK.telefono));
-      setDireccion(String(row?.direccion ?? EMPRESA_MOCK.direccion));
-      setCategoriasSeleccionadas((row?.categorias as string[]) ?? []);
+      setNombre(String(row?.nombre ?? ""));
+      setDireccion(String(row?.direccion ?? ""));
     } else if (tipo === "empleado") {
-      setNombre(String(row?.nombre ?? EMPLEADO_MOCK.nombreCompleto));
-      setCorreo(String(row?.correo ?? EMPLEADO_MOCK.correo));
-      setTelefono(EMPLEADO_MOCK.telefono);
-      setEmpresaAsociada(String(row?.empresa ?? EMPLEADO_MOCK.empresaAsociada));
+      setNombre(String(row?.nombre ?? ""));
+      setApellido(String(row?.apellido ?? ""));
+      setCorreo(String(row?.correo ?? ""));
+      setTelefono(String(row?.telefono ?? ""));
+      setEmpresaAsociada(String(row?.empresa ?? ""));
     } else {
-      setNombre(String(row?.nombre ?? REPORTANTE_MOCK.nombreCompleto));
-      setCorreo(String(row?.email ?? REPORTANTE_MOCK.correo));
-      setTelefono(String(row?.telefono ?? REPORTANTE_MOCK.telefono));
+      setNombre(String(row?.nombre ?? ""));
+      setApellido(String(row?.apellido ?? ""));
+      setCorreo(String(row?.email ?? ""));
+      setTelefono(String(row?.telefono ?? ""));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch company's own workers + reports when visiting "Mi Cuenta" as company
   useEffect(() => {
-    if (!isCompanyMiCuenta || !user?.name || !user?.id) return;
+    if (!isCompanyMiCuenta || !user?.name || !user?.id || !user?.companyId) return;
     setCompanyDataLoading(true);
     Promise.all([
-      authService.getUsers({
-        role: "WORKER",
-        companyName: user.name,
-        limit: 100,
-      }),
+      authService.getUsers({ role: "WORKER", companyName: user.name, limit: 100 }),
       reportsService.getAll({ limit: 1000 }),
       authService.getUserById(user.id),
+      catalogService.getCompanyById(user.companyId),
     ])
-      .then(([workersRes, reportsRes, profileRes]) => {
+      .then(([workersRes, reportsRes, profileRes, companyDetailRes]) => {
         setCompanyWorkers(workersRes.data.users);
         setCompanyOwnReports(
           reportsRes.data.reports.filter((r) => r.company?.name === user.name),
         );
         setTelefono(profileRes.data.user.phoneNumber ?? "");
+        const cats = companyDetailRes.data.company.categories ?? [];
+        setCategoriasSeleccionadas(cats.map((c) => c.name));
       })
       .catch(console.error)
       .finally(() => setCompanyDataLoading(false));
@@ -536,6 +395,59 @@ export default function DetallesUsuario() {
       setCorreo(u.email);
       setTelefono(u.phoneNumber ?? "");
     }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch empresa data (workers, reports, company user, categories) when admin views an empresa
+  useEffect(() => {
+    if (!isAdmin || isAdminMiCuenta || tipo !== "empresa" || isCreateMode) return;
+    const row = state?.data as Record<string, unknown> | undefined;
+    const companyName = String(row?.nombre ?? "");
+    const companyId = String(row?.id ?? "");
+    if (!companyName || !companyId) return;
+    setCompanyDataLoading(true);
+    Promise.all([
+      authService.getUsers({ role: "COMPANY", companyName, limit: 5 }),
+      authService.getUsers({ role: "WORKER", companyName, limit: 100 }),
+      reportsService.getAll({ companyName, limit: 1000 }),
+      catalogService.getCompanyById(companyId),
+    ])
+      .then(([companyUserRes, workersRes, reportsRes, companyDetailRes]) => {
+        const companyUser = companyUserRes.data.users[0];
+        if (companyUser) {
+          setCorreo(companyUser.email);
+          setTelefono(companyUser.phoneNumber ?? "");
+        }
+        setCompanyWorkers(workersRes.data.users);
+        setCompanyOwnReports(reportsRes.data.reports);
+        const cats = companyDetailRes.data.company.categories ?? [];
+        setCategoriasSeleccionadas(cats.map((c) => c.name));
+      })
+      .catch(console.error)
+      .finally(() => setCompanyDataLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch reportante's real reports when admin views a reportante
+  useEffect(() => {
+    if (tipo !== "reportante" || isSelfView || isCreateMode) return;
+    const reportanteId = state?.data?.id as string | undefined;
+    if (!reportanteId) return;
+    reportsService
+      .getByUser(reportanteId)
+      .then((res) => setReportanteReports(res.data.reports))
+      .catch(console.error)
+      .finally(() => setReportanteReportsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch real companies for the empleado empresa dropdown
+  useEffect(() => {
+    if (tipo !== "empleado" || !isAdmin) return;
+    catalogService
+      .getCompanies()
+      .then((res) => setEmpresasOpciones(res.data.companies.map((c) => c.name)))
+      .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -900,6 +812,27 @@ export default function DetallesUsuario() {
                   value={companyDataLoading ? "..." : telefono || "—"}
                   icon={<Phone size={14} />}
                 />
+                {!companyDataLoading && categoriasSeleccionadas.length > 0 && (
+                  <div className="col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">
+                      Categorías de Servicio
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {categoriasSeleccionadas.map((cat) => {
+                        const cfg = CATEGORIA_COLORS[cat] ?? { bg: "#F1F5F9", color: "#64748B" };
+                        return (
+                          <span
+                            key={cat}
+                            className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                            style={{ backgroundColor: cfg.bg, color: cfg.color }}
+                          >
+                            {cat}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1001,10 +934,36 @@ export default function DetallesUsuario() {
               actions={[
                 {
                   label: "Ver Detalles",
-                  onClick: (row) =>
+                  onClick: (row) => {
+                    const r = companyOwnReports.find((rep) => rep.id === row.id);
+                    if (!r) return;
                     navigate(ROUTES.DETALLES_REPORTE, {
-                      state: { reporte: row, mode: "view" },
-                    }),
+                      state: {
+                        mode: "view",
+                        companyView: "propios",
+                        reporte: {
+                          id:          r.id,
+                          correlativo: `#URB-${r.id.slice(0, 8).toUpperCase()}`,
+                          empresa:     r.company?.name ?? "—",
+                          servicio:    r.category.name,
+                          categoryId:  r.category.id,
+                          tipoAveria:  r.failureType?.name ?? "—",
+                          prioridad:   r.priority,
+                          estado:      r.state.name,
+                          sector:      r.neighborhood?.name ?? "—",
+                          responsable: r.assignedManager
+                            ? `${r.assignedManager.name} ${r.assignedManager.lastname}`
+                            : "",
+                          creadoPor:   `${r.user.name} ${r.user.lastname}`,
+                          descripcion: r.description,
+                          address:     r.address ?? "",
+                          latitude:    r.latitude,
+                          longitude:   r.longitude,
+                          createdAt:   r.createdAt,
+                        },
+                      },
+                    });
+                  },
                 },
               ]}
               itemsPerPage={5}
@@ -1072,14 +1031,14 @@ export default function DetallesUsuario() {
   if (tipo === "empresa") {
     const row = state?.data;
     const empresa = {
-      id: row?.id ? `EMP-${String(row.id).padStart(3, "0")}` : EMPRESA_MOCK.id,
-      nombre: (row?.nombre as string) ?? EMPRESA_MOCK.nombre,
-      correo: (row?.correo as string) ?? EMPRESA_MOCK.correo,
-      telefono: (row?.telefono as string) ?? EMPRESA_MOCK.telefono,
-      direccion: (row?.direccion as string) ?? EMPRESA_MOCK.direccion,
+      id: row?.id ? `EMP-${String(row.id).slice(0, 8).toUpperCase()}` : "—",
+      nombre: (row?.nombre as string) ?? "—",
+      direccion: (row?.direccion as string) ?? "—",
       categorias: (row?.categorias as string[]) ?? [],
-      estado: EMPRESA_MOCK.estado,
-      miembroDesde: EMPRESA_MOCK.miembroDesde,
+      estado: (row?.estado as string) ?? "—",
+      miembroDesde: (row?._raw as { createdAt?: string } | undefined)?.createdAt
+        ? formatDate((row?._raw as { createdAt: string }).createdAt)
+        : "—",
     };
 
     return (
@@ -1140,7 +1099,7 @@ export default function DetallesUsuario() {
                   <div className="w-full flex flex-col gap-1 mt-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Estado</span>
-                      <span className="font-semibold text-green-600">
+                      <span className={`font-semibold ${empresa.estado === "Activo" ? "text-green-600" : "text-gray-500"}`}>
                         {empresa.estado}
                       </span>
                     </div>
@@ -1294,12 +1253,12 @@ export default function DetallesUsuario() {
                     />
                     <Field
                       label="Correo Electrónico"
-                      value={empresa.correo}
+                      value={correo || "—"}
                       icon={<Mail size={14} />}
                     />
                     <Field
                       label="Número de Teléfono"
-                      value={empresa.telefono}
+                      value={telefono || "—"}
                       icon={<Phone size={14} />}
                     />
                     <Field
@@ -1364,44 +1323,69 @@ export default function DetallesUsuario() {
                 }
               />
             </div>
-            <List
-              data={EMPLEADOS_DATA}
-              columns={[
-                {
-                  key: "nombre",
-                  header: "Nombre y Apellido",
-                  render: (row) => (
-                    <span className="font-semibold text-gray-900">
-                      {row.nombre}
-                    </span>
-                  ),
-                },
-                {
-                  key: "telefono",
-                  header: "Teléfono",
-                  render: (row) => (
-                    <span className="text-gray-600">{row.telefono}</span>
-                  ),
-                },
-                {
-                  key: "email",
-                  header: "Correo Electrónico",
-                  render: (row) => (
-                    <span className="text-gray-600">{row.email}</span>
-                  ),
-                },
-              ]}
-              actions={[
-                {
-                  label: "Ver Detalles",
-                  onClick: () =>
-                    navigate(ROUTES.DETALLES_USUARIO, {
-                      state: { tipo: "reportante", origen: ROUTES.EMPRESAS },
-                    }),
-                },
-              ]}
-              itemsPerPage={5}
-            />
+            {companyDataLoading ? (
+              <p className="text-sm text-gray-400 py-8 text-center">Cargando...</p>
+            ) : companyWorkers.length === 0 ? (
+              <p className="text-sm text-gray-400 py-8 text-center">Sin empleados registrados.</p>
+            ) : (
+              <List
+                data={companyWorkers.map((w) => ({
+                  id: w.id,
+                  nombre: `${w.name} ${w.lastname}`,
+                  telefono: w.phoneNumber ?? "—",
+                  email: w.email,
+                }))}
+                columns={[
+                  {
+                    key: "nombre",
+                    header: "Nombre y Apellido",
+                    render: (row) => (
+                      <span className="font-semibold text-gray-900">{row.nombre}</span>
+                    ),
+                  },
+                  {
+                    key: "telefono",
+                    header: "Teléfono",
+                    render: (row) => (
+                      <span className="text-gray-600">{row.telefono}</span>
+                    ),
+                  },
+                  {
+                    key: "email",
+                    header: "Correo Electrónico",
+                    render: (row) => (
+                      <span className="text-gray-600">{row.email}</span>
+                    ),
+                  },
+                ]}
+                actions={[
+                  {
+                    label: "Ver Detalles",
+                    onClick: (row) => {
+                      const w = companyWorkers.find((worker) => worker.id === row.id);
+                      if (!w) return;
+                      navigate(ROUTES.DETALLES_USUARIO, {
+                        state: {
+                          tipo: "empleado",
+                          origen: ROUTES.EMPRESAS,
+                          data: {
+                            id:        w.id,
+                            nombre:    w.name,
+                            apellido:  w.lastname,
+                            correo:    w.email,
+                            telefono:  w.phoneNumber ?? "",
+                            empresa:   w.company?.name ?? String((state?.data as Record<string, unknown>)?.nombre ?? ""),
+                            isActive:  w.isActive,
+                            createdAt: w.createdAt,
+                          },
+                        },
+                      });
+                    },
+                  },
+                ]}
+                itemsPerPage={5}
+              />
+            )}
           </div>
         )}
 
@@ -1411,50 +1395,84 @@ export default function DetallesUsuario() {
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               Historial de Reportes
             </h2>
-            <List
-              data={REPORTES_EMPRESA_DATA}
-              filters={[
-                { field: "servicio", label: "Servicio", type: "checkbox" },
-                { field: "tipo", label: "Tipo de Avería", type: "checkbox" },
-                { field: "estado", label: "Estado", type: "checkbox" },
-                { field: "fecha", label: "Buscar fecha", type: "text" },
-              ]}
-              columns={[
-                {
-                  key: "servicio",
-                  header: "Servicio",
-                  render: (row) => (
-                    <span className="text-gray-700">{row.servicio}</span>
-                  ),
-                },
-                {
-                  key: "tipo",
-                  header: "Tipo de Avería",
-                  render: (row) => (
-                    <span className="text-gray-700">{row.tipo}</span>
-                  ),
-                },
-                {
-                  key: "fecha",
-                  header: "Fecha",
-                  render: (row) => (
-                    <span className="text-gray-500">{row.fecha}</span>
-                  ),
-                },
-                {
-                  key: "estado",
-                  header: "Estado",
-                  render: (row) => <EstadoBadge estado={row.estado} />,
-                },
-              ]}
-              actions={[
-                {
-                  label: "Ver Detalles",
-                  onClick: () => navigate(ROUTES.DETALLES_REPORTE),
-                },
-              ]}
-              itemsPerPage={5}
-            />
+            {companyDataLoading ? (
+              <p className="text-sm text-gray-400 py-8 text-center">Cargando...</p>
+            ) : companyOwnReports.length === 0 ? (
+              <p className="text-sm text-gray-400 py-8 text-center">Sin reportes registrados.</p>
+            ) : (
+              <List
+                data={companyOwnReports.map(toReporteRow)}
+                filters={[
+                  { field: "servicio", label: "Servicio", type: "checkbox" },
+                  { field: "tipo", label: "Tipo de Avería", type: "checkbox" },
+                  { field: "estado", label: "Estado", type: "checkbox" },
+                  { field: "fecha", label: "Buscar fecha", type: "text" },
+                ]}
+                columns={[
+                  {
+                    key: "servicio",
+                    header: "Servicio",
+                    render: (row) => (
+                      <span className="text-gray-700">{row.servicio}</span>
+                    ),
+                  },
+                  {
+                    key: "tipo",
+                    header: "Tipo de Avería",
+                    render: (row) => (
+                      <span className="text-gray-700">{row.tipo}</span>
+                    ),
+                  },
+                  {
+                    key: "fecha",
+                    header: "Fecha",
+                    render: (row) => (
+                      <span className="text-gray-500">{row.fecha}</span>
+                    ),
+                  },
+                  {
+                    key: "estado",
+                    header: "Estado",
+                    render: (row) => <EstadoBadge estado={row.estado} />,
+                  },
+                ]}
+                actions={[
+                  {
+                    label: "Ver Detalles",
+                    onClick: (row) => {
+                      const r = companyOwnReports.find((rep) => rep.id === row.id);
+                      if (!r) return;
+                      navigate(ROUTES.DETALLES_REPORTE, {
+                        state: {
+                          mode: "view",
+                          reporte: {
+                            id:          r.id,
+                            correlativo: `#URB-${r.id.slice(0, 8).toUpperCase()}`,
+                            empresa:     r.company?.name ?? "—",
+                            servicio:    r.category.name,
+                            categoryId:  r.category.id,
+                            tipoAveria:  r.failureType?.name ?? "—",
+                            prioridad:   r.priority,
+                            estado:      r.state.name,
+                            sector:      r.neighborhood?.name ?? "—",
+                            responsable: r.assignedManager
+                              ? `${r.assignedManager.name} ${r.assignedManager.lastname}`
+                              : "",
+                            creadoPor:   `${r.user.name} ${r.user.lastname}`,
+                            descripcion: r.description,
+                            address:     r.address ?? "",
+                            latitude:    r.latitude,
+                            longitude:   r.longitude,
+                            createdAt:   r.createdAt,
+                          },
+                        },
+                      });
+                    },
+                  },
+                ]}
+                itemsPerPage={5}
+              />
+            )}
           </div>
         )}
         <Modal
@@ -1566,7 +1584,7 @@ export default function DetallesUsuario() {
     const empleado = {
       id: rowE?.id ? String(rowE.id).slice(0, 8).toUpperCase() : "—",
       fullId: (rowE?.id as string) ?? "",
-      nombreCompleto: (rowE?.nombre as string) ?? "—",
+      nombreCompleto: [rowE?.nombre, rowE?.apellido].filter(Boolean).join(" ") || "—",
       correo: (rowE?.correo as string) ?? "—",
       telefono: (rowE?.telefono as string) || "—",
       empresaAsociada: (rowE?.empresa as string) ?? "—",
@@ -1761,7 +1779,7 @@ export default function DetallesUsuario() {
                         </p>
                         <SearchableSelect
                           placeholder="Buscar empresa..."
-                          options={EMPRESAS_OPCIONES}
+                          options={empresasOpciones}
                           value={empresaAsociada}
                           onChange={setEmpresaAsociada}
                         />
@@ -1957,28 +1975,30 @@ export default function DetallesUsuario() {
   // ── REPORTANTE VIEW ─────────────────────────────────────────────────────────
   const rowR = state?.data;
   const reportante = {
-    id: isSelfView ? (user?.id ?? "") : String(rowR?.id ?? REPORTANTE_MOCK.id),
+    id: isSelfView ? (user?.id ?? "") : String(rowR?.id ?? ""),
     nombreCompleto: isSelfView
       ? `${nombre} ${apellido}`.trim()
-      : ((rowR?.nombre as string) ?? REPORTANTE_MOCK.nombreCompleto),
+      : [rowR?.nombre, rowR?.apellido].filter(Boolean).join(" ") || "—",
     correo: isSelfView
       ? (user?.email ?? "")
-      : ((rowR?.email as string) ?? REPORTANTE_MOCK.correo),
+      : ((rowR?.email as string) || "—"),
     telefono: isSelfView
       ? (fetchedUserData?.phoneNumber ?? "...")
-      : ((rowR?.telefono as string) ?? REPORTANTE_MOCK.telefono),
+      : ((rowR?.telefono as string) || "—"),
     estado: isSelfView
       ? fetchedUserData
         ? fetchedUserData.isActive
           ? "Activo"
           : "Inactivo"
         : "Activo"
-      : ((rowR?.estado as string) ?? REPORTANTE_MOCK.estado),
+      : ((rowR?.estado as string) || "Activo"),
     miembroDesde: isSelfView
       ? fetchedUserData
         ? formatDate(fetchedUserData.createdAt)
         : "..."
-      : REPORTANTE_MOCK.miembroDesde,
+      : rowR?.createdAt
+        ? formatDate(rowR.createdAt as string)
+        : "—",
   };
 
   return (
@@ -2228,12 +2248,26 @@ export default function DetallesUsuario() {
             </div>
           )}
 
-          {(!isSelfView || (!reportesLoading && reportes.length > 0)) && (
+          {!isSelfView && reportanteReportsLoading && (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              Cargando reportes...
+            </p>
+          )}
+          {!isSelfView && !reportanteReportsLoading && reportanteReports.length === 0 && (
+            <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">
+              <p className="text-gray-500 font-medium">Sin reportes creados</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Este usuario no ha creado reportes aún.
+              </p>
+            </div>
+          )}
+          {((!isSelfView && !reportanteReportsLoading && reportanteReports.length > 0) ||
+            (isSelfView && !reportesLoading && reportes.length > 0)) && (
             <List
               data={
                 isSelfView
                   ? reportes.map(toReporteRow)
-                  : REPORTES_REPORTANTE_DATA
+                  : reportanteReports.map(toReporteRow)
               }
               filters={[
                 { field: "servicio", label: "Servicio", type: "checkbox" },
@@ -2272,7 +2306,8 @@ export default function DetallesUsuario() {
                 {
                   label: "Ver Detalles",
                   onClick: (row) => {
-                    const r = reportes.find((rep) => rep.id === row.id);
+                    const source = isSelfView ? reportes : reportanteReports;
+                    const r = source.find((rep) => rep.id === row.id);
                     if (!r) return;
                     navigate(ROUTES.DETALLES_REPORTE, {
                       state: {

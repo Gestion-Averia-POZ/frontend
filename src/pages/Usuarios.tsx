@@ -4,8 +4,8 @@ import { Button, Input, Modal } from "../components/ui";
 import List from "../components/ui/LIst";
 import { ROUTES } from "../constants";
 import { CirclePlus } from "lucide-react";
-import { catalogService, FullCompany } from "../services/catalog.service";
-import { authService, BackendUserProfile } from "../services/auth.service";
+import { catalogService, type FullCompany } from "../services/catalog.service";
+import { authService, type BackendUserProfile } from "../services/auth.service";
 
 const statCardClass =
   "bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-1";
@@ -402,14 +402,26 @@ function ReportantesView({ navigate }: { navigate: ReturnType<typeof useNavigate
           actions={[
             {
               label: "Ver Detalles",
-              onClick: (row) =>
+              onClick: (row) => {
+                const u = reportantes.find((r) => r.id === row.id);
+                if (!u) return;
                 navigate(ROUTES.DETALLES_USUARIO, {
                   state: {
                     tipo: "reportante",
                     origen: ROUTES.REPORTANTES,
-                    data: row._raw,
+                    data: {
+                      id:        u.id,
+                      nombre:    u.name,
+                      apellido:  u.lastname,
+                      email:     u.email,
+                      telefono:  u.phoneNumber ?? "",
+                      estado:    u.isActive ? "Activo" : "Inactivo",
+                      createdAt: u.createdAt,
+                      isActive:  u.isActive,
+                    },
                   },
-                }),
+                });
+              },
             },
             {
               label: (row: { estado: string }) =>

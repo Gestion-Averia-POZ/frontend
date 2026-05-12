@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useAllReports, useReportsByUser, useAssignedReports } from "../hooks/useQueryHooks";
 import {
   type LucideIcon,
   Droplet,
@@ -239,49 +240,26 @@ export default function Reportes() {
     | "dirigidos"
     | "propios";
 
-  const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
-  const [workerAssignedReports, setWorkerAssignedReports] = useState<
-    BackendReport[]
-  >([]);
-  const [workerOwnReports, setWorkerOwnReports] = useState<BackendReport[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     checkbox: {},
     text: {},
   });
   const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    setLoading(true);
+  // Admin / company → todos los reportes (filtro server-side por companyName cuando aplique)
+  const { data: _allReports = [], isLoading: loadingAll } = useAllReports(
+    { limit: 1000 },
+    user?.role === "admin" || user?.role === "company",
+  );
+  // Citizen / worker → reportes propios del usuario
+  const { data: _userReports = [], isLoading: loadingUser } = useReportsByUser(user?.id ?? "");
+  // Worker → reportes asignados
+  const { data: workerAssignedReports = [], isLoading: loadingAssigned } = useAssignedReports(user?.role === "worker");
 
-    if (user.role === "worker") {
-      Promise.all([
-        reportsService.getAssigned().then((res) => res.data.reports),
-        reportsService.getByUser(user.id).then((res) => res.data.reports),
-      ])
-        .then(([assigned, own]) => {
-          setWorkerAssignedReports(assigned);
-          setWorkerOwnReports(own);
-        })
-        .catch(console.error)
-        .finally(() => setLoading(false));
-      return;
-    }
-
-    let fetch: Promise<BackendReport[]>;
-    if (user.role === "citizen") {
-      fetch = reportsService.getByUser(user.id).then((res) => res.data.reports);
-    } else {
-      fetch = reportsService
-        .getAll({ limit: 1000 })
-        .then((res) => res.data.reports);
-    }
-
-    fetch
-      .then((data) => setBackendReports(data))
-      .finally(() => setLoading(false));
-  }, [user?.id, user?.role]);
+  // Alias que preserva la lógica de memos existente sin cambios
+  const backendReports = user?.role === "citizen" ? _userReports : _allReports;
+  const workerOwnReports = _userReports;
+  const loading = loadingAll || loadingUser || loadingAssigned;
 
   const displayReports = useMemo(() => {
     if (user?.role !== "company") return backendReports;

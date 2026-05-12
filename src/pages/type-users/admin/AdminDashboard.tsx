@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   Files,
   AlertTriangle,
@@ -12,8 +11,9 @@ import { Map } from "../../../components/layout";
 import List from "../../../components/ui/LIst";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../../constants";
-import { reportsService, BackendReport } from "../../../services/reports.service";
+import type { BackendReport } from "../../../services/reports.service";
 import type { LucideIcon } from "lucide-react";
+import { useAllReports } from "../../../hooks/useQueryHooks";
 
 function AdminStatCard({
   label,
@@ -79,16 +79,7 @@ function getTopCategories(reports: BackendReport[], n: number): string[] {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [reports, setReports] = useState<BackendReport[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    reportsService
-      .getAll({ limit: 500 })
-      .then((res) => setReports(res.data.reports))
-      .catch(() => setReports([]))
-      .finally(() => setIsLoading(false));
-  }, []);
+  const { data: reports = [], isLoading } = useAllReports({ limit: 500 });
 
   const total = reports.length;
   const sinAtender = reports.filter((r) => r.state.name === "PENDIENTE").length;

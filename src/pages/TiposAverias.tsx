@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { CirclePlus, PencilLine } from "lucide-react";
 import { Input, Modal } from "../components/ui";
 import List from "../components/ui/LIst";
 import { ROUTES } from "../constants";
-import { catalogService, FullCategory, FullFailureType } from "../services/catalog.service";
+import { catalogService, type FullCategory, type FullFailureType } from "../services/catalog.service";
+import { useAllFailureTypes, useCategories, queryKeys } from "../hooks/useQueryHooks";
 
 // ── Category badge colours (assigned by index) ────────────────────────────────
 
@@ -25,11 +27,13 @@ const PRIORITY_OPTIONS = ["BAJA", "MEDIA", "ALTA", "CRITICA"] as const;
 export default function TiposAverias() {
   const navigate = useNavigate();
 
-  const [tiposData, setTiposData] = useState<FullFailureType[]>([]);
-  const [categories, setCategories] = useState<FullCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
+  const { data: tiposData = [], isLoading: loadingFt, isError: isErrorFt } = useAllFailureTypes();
+  const { data: categories = [], isLoading: loadingCat } = useCategories();
+  const isLoading = loadingFt || loadingCat;
+
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
@@ -39,24 +43,6 @@ export default function TiposAverias() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [isArchived, setIsArchived] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  function fetchData() {
-    setIsLoading(true);
-    Promise.all([
-      catalogService.getAllFailureTypes(),
-      catalogService.getCategories(),
-    ])
-      .then(([ftRes, catRes]) => {
-        setTiposData(ftRes.data.failureTypes);
-        setCategories(catRes.data.categories as FullCategory[]);
-      })
-      .catch(() => setError("No se pudieron cargar los tipos de avería."))
-      .finally(() => setIsLoading(false));
-  }
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   function resetForm() {
     setNombreIncidencia("");
@@ -103,9 +89,9 @@ export default function TiposAverias() {
       }
       setIsModalOpen(false);
       resetForm();
-      fetchData();
+      queryClient.invalidateQueries({ queryKey: queryKeys.catalog.allFailureTypes() });
     } catch {
-      setError("No se pudo guardar el tipo de avería.");
+      setSaveError("No se pudo guardar el tipo de avería.");
     } finally {
       setIsSaving(false);
     }
@@ -158,12 +144,14 @@ export default function TiposAverias() {
       {isLoading && (
         <p className="text-sm text-gray-400 text-center py-8">Cargando tipos de avería...</p>
       )}
-      {!isLoading && error && (
-        <p className="text-sm text-red-500 text-center py-8">{error}</p>
+      {!isLoading && (isErrorFt || saveError) && (
+        <p className="text-sm text-red-500 text-center py-8">
+          {saveError ?? "No se pudieron cargar los tipos de avería."}
+        </p>
       )}
 
       {/* ── List ── */}
-      {!isLoading && !error && (
+      {!isLoading && !isErrorFt && (
         <List
           data={listRows}
           filters={[

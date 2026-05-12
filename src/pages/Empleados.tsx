@@ -129,7 +129,8 @@ export default function Empleados() {
                     origen: ROUTES.EMPLEADOS,
                     data: {
                       id:        worker.id,
-                      nombre:    `${worker.name} ${worker.lastname}`,
+                      nombre:    worker.name,
+                      apellido:  worker.lastname,
                       correo:    worker.email,
                       telefono:  worker.phoneNumber ?? "",
                       empresa:   worker.company?.name ?? "",

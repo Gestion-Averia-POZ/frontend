@@ -37,6 +37,8 @@ interface MetricsResponse {
 export interface MetricsParams {
   startDate?: string;
   endDate?: string;
+  categoryId?: string;
+  neighborhoodId?: number;
 }
 
 export const metricsService = {
@@ -44,6 +46,8 @@ export const metricsService = {
     const qs = new URLSearchParams();
     if (params?.startDate) qs.set('startDate', params.startDate);
     if (params?.endDate) qs.set('endDate', params.endDate);
+    if (params?.categoryId) qs.set('categoryId', params.categoryId);
+    if (params?.neighborhoodId != null) qs.set('neighborhoodId', String(params.neighborhoodId));
     const query = qs.toString() ? `?${qs.toString()}` : '';
     return api.get<MetricsResponse>(`/api/reports/metrics${query}`);
   },

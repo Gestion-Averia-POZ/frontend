@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
 import { getToken } from '../services/api';
@@ -8,6 +9,7 @@ import {
 } from '../services/notifications.service';
 import { API_URL } from '../config';
 import notificationSound from '../assets/sound/notification_sound.mp3';
+import { queryKeys } from './useQueryHooks';
 
 export interface UseNotificationsReturn {
   notifications: Notification[];
@@ -21,6 +23,7 @@ export interface UseNotificationsReturn {
 
 export function useNotifications(): UseNotificationsReturn {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const socketRef = useRef<Socket | null>(null);
@@ -46,6 +49,19 @@ export function useNotifications(): UseNotificationsReturn {
         new Audio(notificationSound).play().catch(() => {});
       } catch {
         // autoplay bloqueado por el navegador
+      }
+
+      switch (notification.type) {
+        case 'ASSIGNMENT':
+          queryClient.invalidateQueries({ queryKey: queryKeys.reports.assigned() });
+          break;
+        case 'STATUS_CHANGE':
+        case 'REPORT_CANCELLED':
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+          break;
+        case 'PENDING_REPORTS':
+          queryClient.invalidateQueries({ queryKey: queryKeys.reports.all() });
+          break;
       }
     });
 

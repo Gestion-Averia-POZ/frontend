@@ -105,11 +105,12 @@ export const reportsService = {
   getAssigned: () =>
     api.get<UserReportsResponse>("/api/reports/assigned"),
 
-  getAll: (params?: { categoryName?: string; limit?: number; assignedManagerId?: string }) => {
+  getAll: (params?: { categoryName?: string; limit?: number; assignedManagerId?: string; companyName?: string }) => {
     const limit = params?.limit ?? 1000;
     const cat = params?.categoryName ? `&categoryName=${encodeURIComponent(params.categoryName)}` : "";
     const manager = params?.assignedManagerId ? `&assignedManagerId=${encodeURIComponent(params.assignedManagerId)}` : "";
-    return api.get<AllReportsResponse>(`/api/reports?limit=${limit}${cat}${manager}`);
+    const company = params?.companyName ? `&companyName=${encodeURIComponent(params.companyName)}` : "";
+    return api.get<AllReportsResponse>(`/api/reports?limit=${limit}${cat}${manager}${company}`);
   },
 
   assign: (reportId: string, workerId: string) =>

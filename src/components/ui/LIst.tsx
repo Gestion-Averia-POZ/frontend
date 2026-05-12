@@ -27,6 +27,7 @@ interface ListProps<T extends { id: number | string }> {
   initialFilterState?: FilterState;
   filterActions?: React.ReactNode;
   onFilterChange?: (state: FilterState) => void;
+  renderRowId?: (id: T["id"]) => React.ReactNode;
 }
 
 export default function List<T extends { id: number | string }>({
@@ -38,6 +39,7 @@ export default function List<T extends { id: number | string }>({
   initialFilterState,
   filterActions,
   onFilterChange,
+  renderRowId,
 }: ListProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [filterState, setFilterState] = useState<FilterState>(
@@ -101,6 +103,7 @@ export default function List<T extends { id: number | string }>({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50/50">
+              {renderRowId && <th className={thClass} />}
               {columns.map((col) => (
                 <th key={String(col.key)} className={thClass}>
                   {col.header}
@@ -113,7 +116,7 @@ export default function List<T extends { id: number | string }>({
             {pageData.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + 1}
+                  colSpan={columns.length + (actions?.length ? 1 : 0) + (renderRowId ? 1 : 0)}
                   className="px-6 py-8 text-center text-gray-400"
                 >
                   Sin resultados
@@ -125,6 +128,11 @@ export default function List<T extends { id: number | string }>({
                   key={row.id}
                   className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors"
                 >
+                  {renderRowId && (
+                    <td className="px-6 py-4 text-gray-700">
+                      {renderRowId(row.id)}
+                    </td>
+                  )}
                   {columns.map((col) => (
                     <td
                       key={String(col.key)}

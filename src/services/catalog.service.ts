@@ -40,6 +40,8 @@ export interface FullCompany {
   rif?: string;
   address?: string;
   isActive: boolean;
+  createdAt?: string;
+  categories?: { id: string; name: string }[];
 }
 
 interface CompaniesResponse {

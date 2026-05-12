@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { ROUTES } from "../constants";
 import { CirclePlus, Search, PencilLine, ArrowUpRight } from "lucide-react";
 import { Button, Input, Modal } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { catalogService, type FullCategory } from "../services/catalog.service";
+import { useCategories, queryKeys } from "../hooks/useQueryHooks";
 
 // ─── Paleta de colores pastel ─────────────────────────────────────────────────
 
@@ -15,10 +17,10 @@ const PASTEL_PALETTE: { bg: string; text: string; accent: string }[] = [
   { bg: "#FCE7F3", text: "#9D174D", accent: "#BE185D" },
   { bg: "#E0F2FE", text: "#0369A1", accent: "#0284C7" },
   { bg: "#FEF3C7", text: "#92400E", accent: "#CA8A04" },
-  { bg: "#F5F3FF", text: "#5B21B6", accent: "#7C3AED" },
-  { bg: "#FFF1F2", text: "#9F1239", accent: "#E11D48" },
+  { bg: "#FEF3C7", text: "#201a2b", accent: "#edb13a" },
+  { bg: "#a8dcff", text: "#0c0a2a", accent: "#5651a6" },
   { bg: "#ECFDF5", text: "#065F46", accent: "#059669" },
-  { bg: "#FDF4FF", text: "#6B21A8", accent: "#9333EA" },
+  { bg: "#af9f9b", text: "#0c0a2as", accent: "#6d3822" },
 ];
 
 function getPastelStyle(id: string) {
@@ -51,11 +53,17 @@ function ServiceCard({
       onClick={isArchived ? undefined : onClick}
     >
       <div className="flex flex-col gap-0.5">
-        <p className="font-bold text-lg leading-tight" style={{ color: style.text }}>
+        <p
+          className="font-bold text-lg leading-tight"
+          style={{ color: style.text }}
+        >
           {category.name}
         </p>
         {isArchived && (
-          <span className="text-xs font-medium" style={{ color: style.text, opacity: 0.6 }}>
+          <span
+            className="text-xs font-medium"
+            style={{ color: style.text, opacity: 0.6 }}
+          >
             Archivado
           </span>
         )}
@@ -106,10 +114,9 @@ export default function Servicios() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [categories, setCategories] = useState<FullCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
+  const { data: categories = [], isLoading, isError } = useCategories(showArchived);
 
   const [isOpen, setIsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -118,20 +125,7 @@ export default function Servicios() {
   const [isArchived, setIsArchived] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
-  function fetchCategories() {
-    setIsLoading(true);
-    catalogService
-      .getCategories(showArchived)
-      .then((res) => setCategories(res.data.categories as FullCategory[]))
-      .catch(() => setError("No se pudieron cargar los servicios."))
-      .finally(() => setIsLoading(false));
-  }
-
-  useEffect(() => {
-    fetchCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showArchived]);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function resetForm() {
     setCategoryName("");
@@ -155,16 +149,18 @@ export default function Servicios() {
         if (isArchived) {
           await catalogService.deleteCategory(editingCategoryId);
         } else {
-          await catalogService.updateCategory(editingCategoryId, { name: categoryName.trim() });
+          await catalogService.updateCategory(editingCategoryId, {
+            name: categoryName.trim(),
+          });
         }
       } else {
         await catalogService.createCategory(categoryName.trim());
       }
       setIsOpen(false);
       resetForm();
-      fetchCategories();
+      queryClient.invalidateQueries({ queryKey: queryKeys.catalog.categories() });
     } catch {
-      setError("No se pudo guardar la categoría.");
+      setSaveError("No se pudo guardar la categoría.");
     } finally {
       setIsSaving(false);
     }
@@ -173,9 +169,9 @@ export default function Servicios() {
   async function handleReactivate(id: string) {
     try {
       await catalogService.updateCategory(id, { isActive: true });
-      fetchCategories();
+      queryClient.invalidateQueries({ queryKey: queryKeys.catalog.categories() });
     } catch {
-      setError("No se pudo reactivar la categoría.");
+      setSaveError("No se pudo reactivar la categoría.");
     }
   }
 
@@ -257,14 +253,20 @@ export default function Servicios() {
       {/* ── Service Cards ────────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-4 flex flex-col gap-3">
         {isLoading && (
-          <p className="text-sm text-gray-400 text-center py-8">Cargando servicios...</p>
-        )}
-        {!isLoading && error && (
-          <p className="text-sm text-red-500 text-center py-8">{error}</p>
-        )}
-        {!isLoading && !error && filtered.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-8">
-            {showArchived ? "No hay servicios archivados." : "No hay categorías registradas."}
+            Cargando servicios...
+          </p>
+        )}
+        {!isLoading && (isError || saveError) && (
+          <p className="text-sm text-red-500 text-center py-8">
+            {saveError ?? "No se pudieron cargar los servicios."}
+          </p>
+        )}
+        {!isLoading && !isError && filtered.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-8">
+            {showArchived
+              ? "No hay servicios archivados."
+              : "No hay categorías registradas."}
           </p>
         )}
         {!isLoading &&
@@ -296,13 +298,23 @@ export default function Servicios() {
           setIsOpen(false);
           resetForm();
         }}
-        title={isEditMode ? "Editar Categoría de Servicio" : "Nueva Categoría de Servicio"}
+        title={
+          isEditMode
+            ? "Editar Categoría de Servicio"
+            : "Nueva Categoría de Servicio"
+        }
         description={
           isEditMode
             ? "Modifica el nombre de la categoría seleccionada."
             : "Define una nueva agrupación lógica para los servicios ciudadanos."
         }
-        confirmText={isSaving ? "Guardando..." : isEditMode ? "Guardar Cambios" : "Guardar Categoría"}
+        confirmText={
+          isSaving
+            ? "Guardando..."
+            : isEditMode
+              ? "Guardar Cambios"
+              : "Guardar Categoría"
+        }
         cancelText="Cancelar"
         onConfirm={handleConfirm}
       >

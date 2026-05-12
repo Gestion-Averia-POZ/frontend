@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ClipboardCheck, AlertTriangle, Files, TrendingUp } from "lucide-react";
 import List, { type FilterConfig } from "../../../components/ui/LIst";
 import { useAuth } from "../../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Map } from "../../../components/layout";
-import { reportsService, type BackendReport } from "../../../services/reports.service";
+import type { BackendReport } from "../../../services/reports.service";
 import { ROUTES } from "../../../constants";
+import { useAllReports } from "../../../hooks/useQueryHooks";
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
@@ -79,20 +80,13 @@ export default function DashboardCompany() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [companyReports, setCompanyReports] = useState<BackendReport[]>([]);
-  const [loading, setLoading] = useState(true);
   const [mapMode, setMapMode] = useState<"global" | "empresa">("empresa");
 
-  useEffect(() => {
-    if (!user?.id) return;
-    reportsService.getAll({ limit: 1000 })
-      .then((res) => {
-        const filtered = res.data.reports.filter((r) => r.company?.name === user?.name);
-        setCompanyReports(filtered);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [user?.id]);
+  // Filtrado en servidor por companyName → evita descargar todos los reportes
+  const { data: companyReports = [], isLoading: loading } = useAllReports(
+    { companyName: user?.name, limit: 1000 },
+    !!user?.name,
+  );
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 

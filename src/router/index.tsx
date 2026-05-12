@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, useLocation } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import AuthLayout from "../layouts/AuthLayout";
 import DashboardLayout from "../layouts/DashboardLayout";
@@ -54,6 +54,11 @@ const DashboardCitizen = lazy(
 // Se muestra mientras el chunk de la página
 // se está descargando desde el servidor.
 // ─────────────────────────────────────────────
+
+function DetallesUsuarioKeyed() {
+  const { key } = useLocation();
+  return <DetallesUsuario key={key} />;
+}
 
 function PageLoader() {
   return (
@@ -120,7 +125,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.DETALLES_SERVICIO, element: <DetallesServicio /> },
       { path: ROUTES.EMPRESAS, element: <Usuarios /> },
       { path: ROUTES.REPORTANTES, element: <Usuarios /> },
-      { path: ROUTES.DETALLES_USUARIO, element: <DetallesUsuario /> },
+      { path: ROUTES.DETALLES_USUARIO, element: <DetallesUsuarioKeyed /> },
       { path: ROUTES.METRICAS, element: <DetallesMetrica /> },
       { path: ROUTES.DETALLES_METRICA, element: <DetallesMetrica /> },
       { path: ROUTES.TIPOS_AVERIAS, element: <TiposAverias /> },

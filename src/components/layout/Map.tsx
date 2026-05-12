@@ -8,8 +8,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Zap, Droplet, Trash2, MapPin, Check, X, Locate } from "lucide-react";
 import { ROUTES } from "../../constants";
 import { useAuth } from "../../context/AuthContext";
-import { reportsService } from "../../services/reports.service";
 import type { BackendReport } from "../../services/reports.service";
+import { useAllReports } from "../../hooks/useQueryHooks";
 
 // ─────────────────────────────────────────────
 // TIPOS
@@ -17,6 +17,7 @@ import type { BackendReport } from "../../services/reports.service";
 
 type TipoServicio = "luz" | "agua" | "aseo";
 type Filtro = "todos" | TipoServicio;
+type Priority = "ALTA" | "MEDIA" | "BAJA";
 
 interface SectorData {
   name: string;
@@ -65,11 +66,6 @@ const SERVICIO_TO_FILTRO: Record<string, Filtro> = {
   "Aseo Urbano": "aseo",
 };
 
-const TIPO_TO_SERVICIO: Record<TipoServicio, string> = {
-  luz:  "Electricidad",
-  agua: "Agua",
-  aseo: "Aseo Urbano",
-};
 
 // ─────────────────────────────────────────────
 // HELPERS DE DATOS REALES
@@ -83,44 +79,52 @@ function categoryToFiltro(catName: string): TipoServicio | null {
   return null;
 }
 
-function buildSectors(reports: BackendReport[], filtro: Filtro): SectorData[] {
-  const filtered =
-    filtro === "todos"
-      ? reports
-      : reports.filter((r) => categoryToFiltro(r.category.name) === filtro);
+const PRIORITY_CFG: Record<Priority, { label: string; bg: string; text: string }> = {
+  ALTA:  { label: "Alta",  bg: "#DC2626", text: "#DC2626" },
+  MEDIA: { label: "Media", bg: "#D97706", text: "#D97706" },
+  BAJA:  { label: "Baja",  bg: "#16A34A", text: "#16A34A" },
+};
 
-  const grouped: Record<string, { reports: BackendReport[]; lats: number[]; lngs: number[] }> = {};
+function buildSectors(
+  reports: BackendReport[],
+  filtro: Filtro,
+  prioridades: Set<string>,
+  barrio: string,
+): SectorData[] {
+  const filtered = reports.filter((r) => {
+    if (filtro !== "todos" && categoryToFiltro(r.category.name) !== filtro) return false;
+    if (prioridades.size > 0 && !prioridades.has(r.priority)) return false;
+    if (barrio !== "todos" && r.neighborhood.name !== barrio) return false;
+    return true;
+  });
+
+  const grouped: Record<
+    string,
+    { reports: BackendReport[]; lats: number[]; lngs: number[]; tipo: TipoServicio }
+  > = {};
 
   filtered.forEach((r) => {
     if (r.latitude === undefined || r.longitude === undefined) return;
-    const key = r.neighborhood.name;
-    if (!grouped[key]) grouped[key] = { reports: [], lats: [], lngs: [] };
+    const tipo = categoryToFiltro(r.category.name);
+    if (!tipo) return;
+    const key = `${r.neighborhood.name}__${tipo}`;
+    if (!grouped[key]) grouped[key] = { reports: [], lats: [], lngs: [], tipo };
     const g = grouped[key];
     g.reports.push(r);
     g.lats.push(r.latitude);
     g.lngs.push(r.longitude);
   });
 
-  return Object.entries(grouped).map(([name, g]) => {
+  return Object.entries(grouped).map(([key, g]) => {
+    const name = key.split("__")[0];
     const avgLat = g.lats.reduce((a, b) => a + b, 0) / g.lats.length;
     const avgLng = g.lngs.reduce((a, b) => a + b, 0) / g.lngs.length;
-
-    const tipoCounts: Record<TipoServicio, number> = { luz: 0, agua: 0, aseo: 0 };
-    g.reports.forEach((r) => {
-      const t = categoryToFiltro(r.category.name);
-      if (t) tipoCounts[t]++;
-    });
-    const dominant =
-      filtro !== "todos"
-        ? filtro
-        : ((Object.entries(tipoCounts).sort((a, b) => b[1] - a[1])[0]?.[0] as TipoServicio) || "luz");
-
     const categorias = [...new Set(g.reports.map((r) => r.category.name))];
 
     return {
       name,
       coords: [avgLng, avgLat] as [number, number],
-      tipo: dominant,
+      tipo: g.tipo,
       reportes: {
         total: g.reports.length,
         alta:  g.reports.filter((r) => r.priority === "ALTA").length,
@@ -182,9 +186,21 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
   const filtroActivo: Filtro = servicio
     ? (SERVICIO_TO_FILTRO[servicio] ?? "todos")
     : filtroActual;
+  const [filtroPrioridades, setFiltroPrioridades] = useState<Set<Priority>>(new Set());
+  const [filtroBarrio, setFiltroBarrio] = useState<string>("todos");
 
-  // Real reports data
-  const [allReports, setAllReports] = useState<BackendReport[]>([]);
+  // Real reports data — cacheado por TanStack Query; solo se fetch si no hay
+  // externalReports, ni pin de edición ni pin de vista.
+  const { data: allReports = [] } = useAllReports(
+    { limit: 1000 },
+    !editPin && !pinCoords && !externalReports,
+  );
+
+  // Barrios disponibles derivados de los reportes cargados
+  const availableBarrios = useMemo<string[]>(() => {
+    const active = externalReports ?? allReports;
+    return [...new Set(active.map((r) => r.neighborhood.name))].sort();
+  }, [allReports, externalReports]);
 
   // Filtros disponibles: en modo externalReports solo las categorías presentes en esos reportes
   const availableFiltros = useMemo<Filtro[]>(() => {
@@ -197,9 +213,11 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
     return ["todos", ...(["luz", "agua", "aseo"] as TipoServicio[]).filter((t) => tipos.has(t))];
   }, [externalReports]);
 
-  // Resetear filtro al cambiar entre Mi Empresa y Vista Global
+  // Resetear todos los filtros al cambiar entre Mi Empresa y Vista Global
   useEffect(() => {
     setFiltroActual("todos");
+    setFiltroPrioridades(new Set());
+    setFiltroBarrio("todos");
   }, [externalReports]);
 
   // Cluster tooltip
@@ -229,7 +247,6 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
   const marcadoresRef = useRef<
     Array<{ marker: maplibregl.Marker; tipo: TipoServicio; root: Root }>
   >([]);
-  const globalFetchedRef = useRef(false);
 
   const PZO_BOUNDS: [[number, number], [number, number]] = [
     [-62.83, 8.23],
@@ -310,7 +327,7 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
         paint: {
           "heatmap-weight": ["interpolate", ["linear"], ["get", "intensidad"], 1, 0.2, 10, 1],
           "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 10, 1, 15, 3],
-          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 10, 20, 14, 55],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 10, 50, 14, 120],
           "heatmap-color": [
             "interpolate", ["linear"], ["heatmap-density"],
             0,    "rgba(0,0,0,0)",
@@ -340,23 +357,12 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
     };
   }, []);
 
-  // ── Fetch reports cuando el mapa carga o cuando se quita externalReports ──
-  useEffect(() => {
-    if (!mapLoaded || editPin || pinCoords || externalReports) return;
-    if (globalFetchedRef.current) return;
-    globalFetchedRef.current = true;
-    reportsService
-      .getAll({ limit: 1000 })
-      .then((res) => setAllReports(res.data.reports))
-      .catch(console.error);
-  }, [mapLoaded, externalReports]);
-
   // ── Actualiza heatmap + marcadores cuando cambian reportes o filtro ──
   useEffect(() => {
     if (!mapRef.current || !mapLoaded || editPin || pinCoords) return;
 
     const activeReports = externalReports ?? allReports;
-    const sectors = buildSectors(activeReports, filtroActivo);
+    const sectors = buildSectors(activeReports, filtroActivo, filtroPrioridades, filtroBarrio);
 
     // Actualizar fuente del heatmap
     const source = mapRef.current.getSource("averias-source") as maplibregl.GeoJSONSource | undefined;
@@ -401,7 +407,7 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
 
       marcadoresRef.current.push({ marker, tipo: s.tipo, root });
     });
-  }, [allReports, externalReports, filtroActivo, mapLoaded]);
+  }, [allReports, externalReports, filtroActivo, filtroPrioridades, filtroBarrio, mapLoaded]);
 
   // ── Marcador pendiente en el mapa ──────────────
   useEffect(() => {
@@ -512,27 +518,72 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
         className="absolute inset-0 w-full h-full overflow-hidden rounded-xl"
       />
 
-      {/* ── Filtros de servicio ── */}
+      {/* ── Panel de filtros ── */}
       {showFilters && (
-        <div className="absolute top-3 right-3 z-10 flex gap-1 flex-wrap justify-end">
-          {availableFiltros.map((f) => {
-            const isActive = filtroActivo === f;
-            const label =
-              f === "todos" ? "Todos" : TIPOS_SERVICIO[f as TipoServicio].label;
-            return (
-              <button
-                key={f}
-                onClick={() => setFiltroActual(f)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all shadow-sm ${
-                  isActive
-                    ? "bg-[#1e293b] text-white border-[#1e293b]"
-                    : "bg-white/90 text-[#1e293b] border-[#cbd5e1] hover:bg-[#f1f5f9]"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5 items-end">
+          {/* Fila 1 — Servicio */}
+          <div className="flex gap-1 flex-wrap justify-end">
+            {availableFiltros.map((f) => {
+              const isActive = filtroActivo === f;
+              const label = f === "todos" ? "Todos" : TIPOS_SERVICIO[f as TipoServicio].label;
+              return (
+                <button
+                  key={f}
+                  onClick={() => setFiltroActual(f)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all shadow-sm ${
+                    isActive
+                      ? "bg-[#1e293b] text-white border-[#1e293b]"
+                      : "bg-white/90 text-[#1e293b] border-[#cbd5e1] hover:bg-[#f1f5f9]"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Fila 2 — Prioridad (multi-select) */}
+          <div className="flex gap-1">
+            {(["ALTA", "MEDIA", "BAJA"] as Priority[]).map((p) => {
+              const { label, bg } = PRIORITY_CFG[p];
+              const isActive = filtroPrioridades.has(p);
+              return (
+                <button
+                  key={p}
+                  onClick={() =>
+                    setFiltroPrioridades((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(p)) next.delete(p);
+                      else next.add(p);
+                      return next;
+                    })
+                  }
+                  className="px-3 py-1 rounded-full text-xs font-semibold border transition-all shadow-sm"
+                  style={
+                    isActive
+                      ? { background: bg, color: "white", borderColor: bg }
+                      : { background: "rgba(255,255,255,0.9)", color: "#1e293b", borderColor: "#cbd5e1" }
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Fila 3 — Barrio */}
+          {availableBarrios.length > 0 && (
+            <select
+              value={filtroBarrio}
+              onChange={(e) => setFiltroBarrio(e.target.value)}
+              className="px-3 py-1 rounded-full text-xs font-semibold border border-[#cbd5e1] bg-white/90 text-[#1e293b] shadow-sm cursor-pointer outline-none"
+            >
+              <option value="todos">Todos los sectores</option>
+              {availableBarrios.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 
@@ -633,7 +684,12 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
                   state: {
                     initialFilterState: {
                       text: { sector: s.name },
-                      checkbox: { servicio: s.categorias },
+                      checkbox: {
+                        servicio: s.categorias,
+                        ...(filtroPrioridades.size > 0 && {
+                          prioridad: [...filtroPrioridades],
+                        }),
+                      },
                     },
                     ...(externalReports && { companyView: "dirigidos" }),
                   },

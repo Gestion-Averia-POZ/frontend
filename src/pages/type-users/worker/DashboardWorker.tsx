@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ClipboardCheck,
@@ -11,10 +11,8 @@ import { Map } from "../../../components/layout";
 import List, { type FilterConfig } from "../../../components/ui/LIst";
 import { useAuth } from "../../../context/AuthContext";
 import { ROUTES } from "../../../constants";
-import {
-  reportsService,
-  type BackendReport,
-} from "../../../services/reports.service";
+import type { BackendReport } from "../../../services/reports.service";
+import { useAssignedReports } from "../../../hooks/useQueryHooks";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -104,18 +102,9 @@ export default function DashboardWorker() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [assignedReports, setAssignedReports] = useState<BackendReport[]>([]);
-  const [loading, setLoading] = useState(true);
   const [mapMode, setMapMode] = useState<"asignados" | "global">("asignados");
 
-  useEffect(() => {
-    if (!user?.id) return;
-    reportsService
-      .getAssigned()
-      .then((res) => setAssignedReports(res.data.reports))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [user?.id]);
+  const { data: assignedReports = [], isLoading: loading } = useAssignedReports();
 
   const stats = useMemo(
     () => ({

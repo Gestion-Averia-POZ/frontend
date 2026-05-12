@@ -139,9 +139,9 @@ export default function Register() {
     if (!RIF_REGEX.test(rif))
       errors.rif = "Formato: J-12345678 (letra mayúscula, guión, 7-9 dígitos).";
     if (!PHONE_REGEX.test(companyPhone))
-      errors.companyPhone = "Formato: +58424XXXXXXX (código país + 10 dígitos).";
-    if (!address.trim())
-      errors.address = "La dirección es requerida.";
+      errors.companyPhone =
+        "Formato: +58424XXXXXXX (código país + 10 dígitos).";
+    if (!address.trim()) errors.address = "La dirección es requerida.";
     if (services.length === 0)
       errors.services = "Selecciona al menos un servicio.";
     if (!EMAIL_LOWER_REGEX.test(companyEmail))
@@ -367,13 +367,17 @@ export default function Register() {
         <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-xl relative">
           <BackHeader onBack={() => setStep("choose")} />
           <h1 className="text-3xl font-bold text-[#0F172A] mb-2">
-            Registrar Compañía
+            Solicitud de registro de compañía
           </h1>
           <p className="text-[#475569] text-xs mb-6">
-            Completa los datos de tu empresa para enviar tu solicitud de registro.
+            Completa los datos de tu empresa para enviar tu solicitud de
+            registro.
           </p>
 
-          <form onSubmit={handleCompanyRegister} className="flex flex-col gap-4">
+          <form
+            onSubmit={handleCompanyRegister}
+            className="flex flex-col gap-4"
+          >
             {/* Nombre de la compañía */}
             <div>
               <label className="label mb-1">
@@ -477,7 +481,9 @@ export default function Register() {
             <div>
               <label className="label mb-1">
                 <Mail color="#2563EB" size={16} />
-                <span className="label-text font-medium">Correo Electrónico</span>
+                <span className="label-text font-medium">
+                  Correo Electrónico
+                </span>
               </label>
               <input
                 type="email"
@@ -522,7 +528,9 @@ export default function Register() {
               disabled={loading}
               className="btn btn-primary rounded-xl w-full h-[48px] text-base mt-2"
             >
-              {loading ? "Enviando solicitud..." : "Enviar solicitud de registro"}
+              {loading
+                ? "Enviando solicitud..."
+                : "Enviar solicitud de registro"}
             </button>
           </form>
 
@@ -552,16 +560,12 @@ export default function Register() {
                 <CheckCircle2 size={44} color="#16A34A" strokeWidth={1.8} />
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-gray-900">
-                  ¡Felicidades!
-                </p>
+                <p className="text-xl font-bold text-gray-900">¡Felicidades!</p>
                 <p className="text-sm text-gray-500 mt-1">
                   Ha formalizado su solicitud.
                 </p>
               </div>
-              <p className="text-xs text-gray-400">
-                Procesando su registro...
-              </p>
+              <p className="text-xs text-gray-400">Procesando su registro...</p>
             </div>
           )}
         </div>

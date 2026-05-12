@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Map } from "../../../components/layout";
 import List from "../../../components/ui/LIst";
 import { useAuth } from "../../../context/AuthContext";
 import { ROUTES } from "../../../constants";
-import {
-  reportsService,
-  type BackendReport,
-} from "../../../services/reports.service";
+import type { BackendReport } from "../../../services/reports.service";
+import { useReportsByUser } from "../../../hooks/useQueryHooks";
 
 // ── Badge config alineado con estados del backend ─────────────────────────────
 
@@ -96,22 +94,7 @@ export default function DashboardCitizen() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [reports, setReports] = useState<BackendReport[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!user?.id) return;
-    reportsService
-      .getByUser(user.id)
-      .then((res) => setReports(res.data.reports))
-      .catch((err) =>
-        setError(
-          err instanceof Error ? err.message : "Error al cargar reportes"
-        )
-      )
-      .finally(() => setLoading(false));
-  }, [user?.id]);
+  const { data: reports = [], isLoading: loading, isError } = useReportsByUser(user?.id ?? "");
 
   const rows = useMemo(() => reports.map(toRow), [reports]);
 
@@ -187,11 +170,11 @@ export default function DashboardCitizen() {
           </p>
         )}
 
-        {!loading && error && (
-          <p className="text-sm text-red-500 py-8 text-center">{error}</p>
+        {!loading && isError && (
+          <p className="text-sm text-red-500 py-8 text-center">Error al cargar reportes</p>
         )}
 
-        {!loading && !error && rows.length === 0 && (
+        {!loading && !isError && rows.length === 0 && (
           <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">
             <p className="text-gray-500 font-medium">
               No tienes reportes creados
@@ -202,7 +185,7 @@ export default function DashboardCitizen() {
           </div>
         )}
 
-        {!loading && !error && rows.length > 0 && (
+        {!loading && !isError && rows.length > 0 && (
           <List
             data={rows}
             filters={[

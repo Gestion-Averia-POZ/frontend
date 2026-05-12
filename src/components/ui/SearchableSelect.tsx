@@ -18,6 +18,10 @@ export default function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

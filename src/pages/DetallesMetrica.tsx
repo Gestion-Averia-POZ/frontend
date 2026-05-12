@@ -15,6 +15,9 @@ import {
 } from "recharts";
 import { useAuth } from "../context/AuthContext";
 import { metricsService, type MetricsData } from "../services/metrics.service";
+import { useCategories, useNeighborhoods } from "../hooks/useQueryHooks";
+import { catalogService } from "../services/catalog.service";
+import { authService } from "../services/auth.service";
 
 type Period = "7d" | "30d" | "3m" | "all";
 
@@ -87,6 +90,40 @@ export default function DetallesMetrica() {
     periodToRange("30d"),
   );
 
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState<string>("");
+
+  const { data: allCategories = [] } = useCategories();
+  const { data: neighborhoods = [] } = useNeighborhoods();
+
+  // Para company/worker: solo las categorías de su empresa
+  const [companyCategories, setCompanyCategories] = useState<{ id: string; name: string }[] | null>(null);
+
+  useEffect(() => {
+    if (!user || user.role === "admin" || user.role === "citizen") return;
+    if (user.role === "company" && user.companyId) {
+      catalogService
+        .getCompanyById(user.companyId)
+        .then((res) => setCompanyCategories(res.data.company.categories ?? []))
+        .catch(console.error);
+    } else if (user.role === "worker") {
+      authService
+        .getUserById(user.id)
+        .then((res) => {
+          const companyId = res.data.user.company?.id;
+          if (!companyId) return;
+          return catalogService.getCompanyById(companyId);
+        })
+        .then((res) => {
+          if (res) setCompanyCategories(res.data.company.categories ?? []);
+        })
+        .catch(console.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const categories = companyCategories ?? allCategories;
+
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
@@ -96,7 +133,11 @@ export default function DetallesMetrica() {
     setLoading(true);
     setError(null);
     metricsService
-      .getMetrics(dateRange)
+      .getMetrics({
+        ...dateRange,
+        ...(selectedCategoryId ? { categoryId: selectedCategoryId } : {}),
+        ...(selectedNeighborhoodId ? { neighborhoodId: parseInt(selectedNeighborhoodId, 10) } : {}),
+      })
       .then((res) => {
         const data = res.data;
         data.byStatus = [...data.byStatus].sort(
@@ -106,7 +147,7 @@ export default function DetallesMetrica() {
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [dateRange, user]);
+  }, [dateRange, selectedCategoryId, selectedNeighborhoodId, user]);
 
   function handlePeriodClick(p: Period) {
     setActivePeriod(p);
@@ -188,6 +229,30 @@ export default function DetallesMetrica() {
             >
               Aplicar
             </button>
+          </div>
+
+          {/* Category + Sector selects */}
+          <div className="flex items-center gap-2 text-sm">
+            <select
+              value={selectedCategoryId}
+              onChange={(e) => setSelectedCategoryId(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-[#1e293b]/20 transition bg-white"
+            >
+              <option value="">Todas las categorías</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+            <select
+              value={selectedNeighborhoodId}
+              onChange={(e) => setSelectedNeighborhoodId(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-[#1e293b]/20 transition bg-white"
+            >
+              <option value="">Todos los sectores</option>
+              {neighborhoods.map((n) => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
