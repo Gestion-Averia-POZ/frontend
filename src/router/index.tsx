@@ -19,10 +19,10 @@ const Privacy = lazy(() => import("../pages/Privacy"));
 const NotFound = lazy(() => import("../pages/NotFound"));
 
 // Rutas de autenticación
-const Login = lazy(() => import("../pages/auth/Login"));
-const Register = lazy(() => import("../pages/auth/Register"));
-const RecoverPassword = lazy(() => import("../pages/auth/RecoverPassword"));
-const CompanySuccess = lazy(() => import("../pages/auth/CompanySuccess"));
+const Login = lazy(() => import("../pages/Auth/Login"));
+const Register = lazy(() => import("../pages/Auth/Register"));
+const RecoverPassword = lazy(() => import("../pages/Auth/RecoverPassword"));
+const CompanySuccess = lazy(() => import("../pages/Auth/CompanySuccess"));
 
 // Dashboards por rol
 const AdminDashboard = lazy(

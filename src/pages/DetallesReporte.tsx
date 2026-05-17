@@ -134,7 +134,7 @@ export default function DetallesReporte() {
   const isCompanyDirigidos = isCompany && !isCompanyOwnReport && isViewMode;
 
   const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
-  const [reportePinCoords, setReportePinCoords] = useState<[number, number] | undefined>(() => {
+  const [reportePinCoords] = useState<[number, number] | undefined>(() => {
     if (reporte?.longitude != null && reporte?.latitude != null) {
       return [reporte.longitude, reporte.latitude];
     }
@@ -194,7 +194,7 @@ export default function DetallesReporte() {
   );
   const [descripcion, setDescripcion] = useState(reporte?.descripcion ?? "");
   const [calle, setCalle] = useState(reporte?.address ?? "");
-  const [vecindario, setVecindario] = useState(reporte?.sector ?? "");
+  const [_vecindario, setVecindario] = useState(reporte?.sector ?? "");
   const [viewCreatedAt] = useState(() => {
     if (!reporte?.createdAt) return "";
     return new Date(reporte.createdAt).toLocaleDateString("es-VE", {

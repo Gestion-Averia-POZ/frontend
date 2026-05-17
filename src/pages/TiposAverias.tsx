@@ -5,7 +5,7 @@ import { CirclePlus, PencilLine } from "lucide-react";
 import { Input, Modal } from "../components/ui";
 import List from "../components/ui/LIst";
 import { ROUTES } from "../constants";
-import { catalogService, type FullCategory, type FullFailureType } from "../services/catalog.service";
+import { catalogService, type FullFailureType } from "../services/catalog.service";
 import { useAllFailureTypes, useCategories, queryKeys } from "../hooks/useQueryHooks";
 
 // ── Category badge colours (assigned by index) ────────────────────────────────

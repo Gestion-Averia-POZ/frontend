@@ -59,10 +59,6 @@ interface CategoriesResponse {
   data: { categories: CatalogCategory[] };
 }
 
-interface FullCategoriesResponse {
-  success: boolean;
-  data: { categories: FullCategory[] };
-}
 
 interface FailureTypesResponse {
   success: boolean;

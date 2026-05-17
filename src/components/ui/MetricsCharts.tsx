@@ -25,21 +25,15 @@ const PIE_DATA = [
 const PIE_COLORS = ["#1e293b", "#3b82f6", "#f97316", "#22c55e"];
 
 // Etiqueta que se dibuja directamente sobre cada segmento
-const renderLabel = ({
-  cx,
-  cy,
-  midAngle,
-  innerRadius,
-  outerRadius,
-  value,
-}: {
-  cx: number;
-  cy: number;
-  midAngle: number;
-  innerRadius: number;
-  outerRadius: number;
-  value: number;
-}) => {
+const renderLabel = (props: any) => {
+  const {
+    cx,
+    cy,
+    midAngle,
+    innerRadius,
+    outerRadius,
+    value,
+  } = props;
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -124,7 +118,7 @@ export default function MetricsCharts() {
               layout="vertical"
               align="right"
               verticalAlign="middle"
-              formatter={(value, entry: { payload?: { value: number } }) =>
+              formatter={(value, entry: any) =>
                 `${value} ${entry.payload?.value ?? ""}%`
               }
             />

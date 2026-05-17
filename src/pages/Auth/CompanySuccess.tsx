@@ -1,11 +1,10 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button, Logo } from "../../components/ui";
 import { ROUTES } from "../../constants";
 import companySuccessImg from "../../assets/images/2812144775_167bb6f1b5_b.jpg";
 import { Send } from "lucide-react";
 
 export default function CompanySuccess() {
-  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex">
