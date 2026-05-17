@@ -26,9 +26,17 @@ function categoryToFiltro(catName: string): TipoServicio | null {
 // ─── GeoJSON ──────────────────────────────────────────────────────────────────
 
 function buildGeoJSON(points: HeatmapPoint[]) {
+  const validPoints = points.filter(
+    (p) =>
+      p &&
+      typeof p.lat === "number" &&
+      typeof p.lng === "number" &&
+      !isNaN(p.lat) &&
+      !isNaN(p.lng)
+  );
   return {
     type: "FeatureCollection" as const,
-    features: points.map((p) => ({
+    features: validPoints.map((p) => ({
       type: "Feature" as const,
       properties: { intensidad: 1 },
       geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },

@@ -20,6 +20,7 @@ import { ROUTES } from "../constants";
 import { Zap, Droplet, Trash2 } from "lucide-react";
 import { API_URL } from "../config";
 import type { HeatmapData, HeatmapPoint } from "../types/heatmap";
+import homeCdGuayanaImg from "../assets/images/Home-CD-Guayana.webp";
 
 export default function Home() {
   const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
@@ -53,7 +54,7 @@ export default function Home() {
         <div
           className="hero min-h-screen"
           style={{
-            backgroundImage: "url(/src/assets/images/Home-CD-Guayana.webp)",
+            backgroundImage: `url(${homeCdGuayanaImg})`,
           }}
         >
           <div className="hero-overlay"></div>

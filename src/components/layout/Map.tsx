@@ -104,7 +104,7 @@ function buildSectors(
   > = {};
 
   filtered.forEach((r) => {
-    if (r.latitude === undefined || r.longitude === undefined) return;
+    if (r.latitude == null || r.longitude == null) return;
     const tipo = categoryToFiltro(r.category.name);
     if (!tipo) return;
     const key = `${r.neighborhood.name}__${tipo}`;
