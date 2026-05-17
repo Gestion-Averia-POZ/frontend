@@ -317,7 +317,7 @@ export default function DetallesMetrica() {
                     outerRadius={95}
                     paddingAngle={2}
                     label={({ percent }) =>
-                      percent > 0.03 ? `${(percent * 100).toFixed(0)}%` : ""
+                      percent && percent > 0.03 ? `${(percent * 100).toFixed(0)}%` : ""
                     }
                     labelLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
                   >

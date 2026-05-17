@@ -17,6 +17,7 @@ export default function Soporte() {
 
   if (!user) return null;
 
+  const email = user.email;
   const nombreCompleto = `${user.name} ${user.lastname}`;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -43,7 +44,7 @@ export default function Soporte() {
     const body = {
       applicantName: nombreCompleto,
       type: tipo === "Duda" ? "DUDA" : "BUG",
-      description: `${user.email}. ${fecha}:\n${mensaje.trim()}`,
+      description: `${email}. ${fecha}:\n${mensaje.trim()}`,
     };
 
     try {
