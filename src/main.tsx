@@ -1,12 +1,29 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "./index.css";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import "./styles/global.css";
 import App from "./App.tsx";
-import "@fontsource/inter"; // Carga el peso por defecto (400)
-import "@fontsource/inter/700.css"; // Si necesitas negritas
+import { AuthProvider } from "./context/AuthContext";
+import "@fontsource/inter";
+import "@fontsource/inter/700.css";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   </StrictMode>,
 );

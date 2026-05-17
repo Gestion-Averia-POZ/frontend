@@ -1,0 +1,96 @@
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Lock, Mail, Send } from "lucide-react";
+import { Form, Logo } from "../../components/ui";
+import { ROUTES, DASHBOARD_ROUTES } from "../../constants";
+import { useAuth } from "../../context/AuthContext";
+
+export default function Login() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: { preventDefault(): void }) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const user = await login(email, password);
+      navigate(DASHBOARD_ROUTES[user.role]);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Correo o contraseña incorrectos.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F1F5F9] flex items-center justify-center px-4">
+      <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-md">
+        <Logo classes="flex items-center justify-center gap-2 mb-8" />
+
+        <h1 className="text-3xl font-bold text-[#0F172A] text-center mb-2">
+          Bienvenido
+        </h1>
+        <p className="text-[#475569] text-center mb-6">
+          Inicia sesión en tu cuenta de Urbis
+        </p>
+
+        <Form
+          noBorder
+          textButton={loading ? "Iniciando sesión..." : "Iniciar Sesión"}
+          submitClasses="w-full h-[48px] text-base"
+          submitIcon={Send}
+          onSubmit={handleSubmit}
+          error={error}
+          fields={[
+            {
+              icon: Mail,
+              label: "Correo Electrónico",
+              placeholder: "ejemplo@urbis.com",
+              type: "email",
+              value: email,
+              onChange: setEmail,
+            },
+            {
+              icon: Lock,
+              label: "Contraseña",
+              placeholder: "••••••••",
+              type: "password",
+              value: password,
+              onChange: setPassword,
+            },
+          ]}
+        />
+
+        <div className="flex flex-col items-center gap-2 mt-4">
+          <Link
+            to={ROUTES.RECOVER_PASSWORD}
+            className="text-sm text-[#2563EB] hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
+
+        <div className="divider my-4" />
+
+        <p className="text-center text-sm text-[#475569]">
+          ¿No tienes cuenta?{" "}
+          <Link
+            to={ROUTES.REGISTER}
+            className="text-[#2563EB] font-medium hover:underline"
+          >
+            Regístrate aquí
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
