@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CirclePlus } from "lucide-react";
+import { CirclePlus, Upload } from "lucide-react";
 import List from "../components/ui/LIst";
 import { ROUTES } from "../constants";
-import { Button } from "../components/ui";
+import { Button, ImportCSVModal } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { authService, type BackendUserProfile } from "../services/auth.service";
 
@@ -32,6 +32,7 @@ export default function Empleados() {
 
   const [workers, setWorkers] = useState<BackendUserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   useEffect(() => {
     const params = isAdmin
@@ -54,16 +55,24 @@ export default function Empleados() {
         <h1 className="text-3xl font-bold text-gray-900">Empleados Registrados</h1>
         <div className="flex justify-between items-center mt-1">
           <p className="text-sm text-gray-500">Lista de empleados registrados en el sistema.</p>
-          <Button
-            text="Empleado"
-            icon={CirclePlus}
-            variant_classes="btn-primary"
-            onClick={() =>
-              navigate(ROUTES.DETALLES_USUARIO, {
-                state: { tipo: "empleado", origen: ROUTES.EMPLEADOS, mode: "create" },
-              })
-            }
-          />
+          <div className="flex items-center gap-2">
+            <Button
+              text="Importar"
+              icon={Upload}
+              variant_classes="btn-outline btn-sm"
+              onClick={() => setIsImportOpen(true)}
+            />
+            <Button
+              text="Empleado"
+              icon={CirclePlus}
+              variant_classes="btn-primary"
+              onClick={() =>
+                navigate(ROUTES.DETALLES_USUARIO, {
+                  state: { tipo: "empleado", origen: ROUTES.EMPLEADOS, mode: "create" },
+                })
+              }
+            />
+          </div>
         </div>
       </div>
 
@@ -80,6 +89,24 @@ export default function Empleados() {
           </div>
         </div>
       </div>
+
+      <ImportCSVModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        type="users"
+        onSuccess={() => {
+          setIsImportOpen(false);
+          const params = isAdmin
+            ? { role: "WORKER", limit: 100 }
+            : { role: "WORKER", companyName: user?.name, limit: 100 };
+          setLoading(true);
+          authService
+            .getUsers(params)
+            .then((res) => setWorkers(res.data.users))
+            .catch(console.error)
+            .finally(() => setLoading(false));
+        }}
+      />
 
       {/* List */}
       {loading ? (

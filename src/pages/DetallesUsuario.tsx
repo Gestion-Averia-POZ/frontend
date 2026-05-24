@@ -268,6 +268,7 @@ export default function DetallesUsuario() {
   const [direccion, setDireccion] = useState("");
   const [empresaAsociada, setEmpresaAsociada] = useState("");
 
+  const [password, setPassword] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [categoriaModalOpen, setCategoriaModalOpen] = useState(false);
@@ -466,6 +467,25 @@ export default function DetallesUsuario() {
         ...(telefono.trim() ? { phoneNumber: telefono.trim() } : {}),
       });
       navigate(ROUTES.EMPLEADOS);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleCreateReportante() {
+    if (!nombre.trim() || !apellido.trim() || !correo.trim() || !password.trim()) return;
+    setSaving(true);
+    try {
+      await authService.register({
+        name: nombre.trim(),
+        lastname: apellido.trim(),
+        email: correo.trim(),
+        password: password.trim(),
+        ...(telefono.trim() ? { phoneNumber: telefono.trim() } : {}),
+      });
+      navigate(ROUTES.REPORTANTES);
     } catch (err) {
       console.error(err);
     } finally {
@@ -2025,14 +2045,19 @@ export default function DetallesUsuario() {
         </h1>
         <Button
           text={
-            isCreateMode
-              ? "Registrar"
-              : saving
-                ? "Guardando..."
-                : "Guardar Cambio"
+            saving
+              ? isCreateMode ? "Registrando..." : "Guardando..."
+              : isCreateMode ? "Registrar" : "Guardar Cambio"
           }
           variant_classes="btn-primary"
-          onClick={(isSelfView || isAdminMiCuenta) && !saving ? handleSaveCitizen : undefined}
+          disabled={saving}
+          onClick={
+            isCreateMode
+              ? handleCreateReportante
+              : (isSelfView || isAdminMiCuenta) && !saving
+                ? handleSaveCitizen
+                : undefined
+          }
         />
       </div>
 
@@ -2187,11 +2212,21 @@ export default function DetallesUsuario() {
                     onChange={setApellido}
                     placeholder="Apellido"
                   />
-                  <Field
-                    label="Correo Electrónico"
-                    value={correo}
-                    icon={<Mail size={14} />}
-                  />
+                  {isCreateMode ? (
+                    <EditableField
+                      label="Correo Electrónico"
+                      value={correo}
+                      onChange={setCorreo}
+                      placeholder="reportante@email.com"
+                      icon={<Mail size={14} />}
+                    />
+                  ) : (
+                    <Field
+                      label="Correo Electrónico"
+                      value={correo}
+                      icon={<Mail size={14} />}
+                    />
+                  )}
                   <EditableField
                     label="Número de Teléfono"
                     value={telefono}
@@ -2199,6 +2234,16 @@ export default function DetallesUsuario() {
                     placeholder="+58 412 000 0000"
                     icon={<Phone size={14} />}
                   />
+                  {isCreateMode && (
+                    <EditableField
+                      label="Contraseña"
+                      value={password}
+                      onChange={setPassword}
+                      placeholder="••••••••"
+                      type="password"
+                      icon={<Lock size={14} />}
+                    />
+                  )}
                 </>
               ) : (
                 <>

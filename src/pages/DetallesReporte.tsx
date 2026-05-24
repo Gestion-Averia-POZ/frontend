@@ -83,6 +83,7 @@ type ReporteState = {
   sector: string;
   responsable: string;
   creadoPor: string;
+  telefonoCreador?: string;
   descripcion?: string;
   address?: string;
   latitude?: number;
@@ -143,7 +144,7 @@ export default function DetallesReporte() {
 
   // ro(field): true → campo de solo lectura
   const ro = (field: string) => {
-    if (isCompanyDirigidos && isViewMode && (field === "estado" || field === "responsable")) return false;
+    if ((isCompanyDirigidos || isAdmin) && isViewMode && (field === "estado" || field === "responsable")) return false;
     if (isWorker && isViewMode && field === "estado") return false;
     return isViewMode;
   };
@@ -204,11 +205,15 @@ export default function DetallesReporte() {
   const [responsable, setResponsable] = useState(reporte?.responsable ?? "");
   const [empresa, setEmpresa] = useState(reporte?.empresa ?? "");
 
-  const shouldFetchWorkers = isViewMode && isCompany && !isCompanyOwnReport && !!user?.name;
+  const shouldFetchWorkers = isViewMode && (
+    (isCompany && !isCompanyOwnReport && !!user?.name) ||
+    (isAdmin && !!reporte?.empresa && reporte.empresa !== "—")
+  );
+  const workerFetchCompany = isAdmin ? (reporte?.empresa ?? "") : (user?.name ?? "");
   const { data: _categories = [] } = useCategories();
   const { data: _failureTypes = [] } = useFailureTypesByCategory(categoriaId);
   const { data: _companies = [] } = useCompaniesByCategory(!isViewMode ? categoria : "");
-  const { data: _workers = [] } = useWorkers(user?.name, shouldFetchWorkers);
+  const { data: _workers = [] } = useWorkers(workerFetchCompany, shouldFetchWorkers);
 
   // Bridge: categories → options/map (create mode only)
   useEffect(() => {
@@ -298,7 +303,20 @@ export default function DetallesReporte() {
         if (workersMap[responsable]) {
           promises.push(reportsService.assign(reporte.id, workersMap[responsable]));
         }
-      } else {
+      } else if (isAdmin) {
+        const estadoBackendMap: Record<string, "PENDIENTE" | "EN_PROCESO" | "COMPLETADO" | "CANCELADO"> = {
+          "Pendiente":  "PENDIENTE",
+          "En Proceso": "EN_PROCESO",
+          "Completado": "COMPLETADO",
+          "Cancelado":  "CANCELADO",
+        };
+        const backendEstado = estadoBackendMap[estado];
+        if (backendEstado) {
+          promises.push(reportsService.updateStatus(reporte.id, backendEstado));
+        }
+        if (workersMap[responsable]) {
+          promises.push(reportsService.assign(reporte.id, workersMap[responsable]));
+        }
         if (descripcion.trim() || failureTypesMap[tipoAveria]) {
           promises.push(reportsService.update(reporte.id, {
             ...(descripcion.trim() && { description: descripcion.trim() }),
@@ -644,6 +662,19 @@ export default function DetallesReporte() {
                   </span>
                 </div>
               </Field>
+
+              {isViewMode && !isCitizen && (
+                <Field label="Número de Contacto">
+                  <div
+                    className="flex items-center gap-2 px-3 py-3 rounded-xl"
+                    style={readonlyStyle}
+                  >
+                    <span className="text-sm text-gray-700">
+                      {reporte?.telefonoCreador || "No registrado"}
+                    </span>
+                  </div>
+                </Field>
+              )}
 
               <div className="col-span-2">
                 <Field label="Responsable Asignado">

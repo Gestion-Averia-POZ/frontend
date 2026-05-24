@@ -248,6 +248,15 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
     Array<{ marker: maplibregl.Marker; tipo: TipoServicio; root: Root }>
   >([]);
 
+  const byServicio = useMemo(() => {
+    const active = externalReports ?? allReports;
+    return {
+      luz:  active.filter((r) => categoryToFiltro(r.category.name) === "luz").length,
+      agua: active.filter((r) => categoryToFiltro(r.category.name) === "agua").length,
+      aseo: active.filter((r) => categoryToFiltro(r.category.name) === "aseo").length,
+    };
+  }, [allReports, externalReports]);
+
   const PZO_BOUNDS: [[number, number], [number, number]] = [
     [-62.83, 8.23],
     [-62.65, 8.35],
@@ -521,6 +530,24 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
       {/* ── Panel de filtros ── */}
       {showFilters && (
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5 items-end">
+          {/* Fila 0 — Indicador en tiempo real */}
+          <div className="flex items-center gap-2.5 bg-white/90 border border-[#e2e8f0] rounded-xl shadow-sm px-3 py-2">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+            </span>
+            {(["luz", "agua", "aseo"] as TipoServicio[]).map((tipo, i) => {
+              const { Icon, color } = TIPOS_SERVICIO[tipo];
+              return (
+                <div key={tipo} className="flex items-center gap-1">
+                  {i > 0 && <span className="text-[#cbd5e1] text-xs select-none">·</span>}
+                  <Icon size={12} style={{ color }} strokeWidth={2.2} />
+                  <span className="text-xs font-semibold text-[#1e293b]">{byServicio[tipo]}</span>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Fila 1 — Servicio */}
           <div className="flex gap-1 flex-wrap justify-end">
             {availableFiltros.map((f) => {
@@ -601,6 +628,26 @@ export default function Map({ servicio, pinCoords, editPin, onPinChange, externa
             <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
           </svg>
         </button>
+      )}
+
+      {/* ── Leyenda de calor ── */}
+      {showFilters && (
+        <div className="absolute bottom-4 left-4 z-10 bg-white/90 backdrop-blur-sm border border-[#e2e8f0] rounded-xl shadow-sm px-3 py-2.5">
+          <p className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wider mb-1.5">
+            Densidad de reportes
+          </p>
+          <div
+            className="h-2 w-36 rounded-full"
+            style={{
+              background:
+                "linear-gradient(to right, rgba(0,0,255,0.4), rgb(255,255,0) 40%, rgb(255,140,0) 70%, rgb(220,0,0))",
+            }}
+          />
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-[#94a3b8]">Baja</span>
+            <span className="text-[10px] text-[#94a3b8]">Alta</span>
+          </div>
+        </div>
       )}
 
       {/* ── Controles editPin ── */}

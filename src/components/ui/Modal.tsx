@@ -44,7 +44,7 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-[200] flex items-center justify-center"
       style={{
         opacity: visible ? 1 : 0,
         transition: "opacity 200ms ease",

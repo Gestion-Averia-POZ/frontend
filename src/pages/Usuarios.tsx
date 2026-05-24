@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Button, Input, Modal } from "../components/ui";
+import { Button, Input, Modal, ImportCSVModal } from "../components/ui";
 import List from "../components/ui/LIst";
 import { ROUTES } from "../constants";
-import { CirclePlus } from "lucide-react";
+import { CirclePlus, Upload } from "lucide-react";
 import { catalogService, type FullCompany } from "../services/catalog.service";
 import { authService, type BackendUserProfile } from "../services/auth.service";
 
@@ -280,6 +280,7 @@ function ReportantesView({ navigate }: { navigate: ReturnType<typeof useNavigate
   const [reportantes, setReportantes] = useState<BackendUserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   function fetchReportantes() {
     setIsLoading(true);
@@ -326,7 +327,35 @@ function ReportantesView({ navigate }: { navigate: ReturnType<typeof useNavigate
             Gestiona los usuarios que registran incidencias en la plataforma.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            text="Importar"
+            icon={Upload}
+            variant_classes="btn-outline btn-sm"
+            onClick={() => setIsImportOpen(true)}
+          />
+          <Button
+            text="Reportante"
+            icon={CirclePlus}
+            variant_classes="btn-primary"
+            onClick={() =>
+              navigate(ROUTES.DETALLES_USUARIO, {
+                state: { tipo: "reportante", origen: ROUTES.REPORTANTES, mode: "create" },
+              })
+            }
+          />
+        </div>
       </div>
+
+      <ImportCSVModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        type="users"
+        onSuccess={() => {
+          setIsImportOpen(false);
+          fetchReportantes();
+        }}
+      />
 
       {/* Stat card */}
       <div className="mb-6">
