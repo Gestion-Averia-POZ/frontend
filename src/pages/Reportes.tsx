@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAllReports, useReportsByUser, useAssignedReports } from "../hooks/useQueryHooks";
 import {
   type LucideIcon,
@@ -11,8 +12,9 @@ import {
   XCircle,
   AlertTriangle,
   Download,
+  Upload,
 } from "lucide-react";
-import { Button, Card } from "../components/ui";
+import { Button, Card, ImportCSVModal, LoadingState } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ROUTES } from "../constants";
@@ -245,6 +247,8 @@ export default function Reportes() {
     text: {},
   });
   const [exporting, setExporting] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   // Admin / company → todos los reportes (filtro server-side por companyName cuando aplique)
   const { data: _allReports = [], isLoading: loadingAll } = useAllReports(
@@ -367,6 +371,7 @@ export default function Reportes() {
               ? `${full.assignedManager.name} ${full.assignedManager.lastname}`
               : "",
             creadoPor: `${full.user.name} ${full.user.lastname}`,
+            telefonoCreador: full.user.phoneNumber ?? "",
             descripcion: full.description,
             address: full.address ?? "",
             latitude: full.latitude,
@@ -384,12 +389,25 @@ export default function Reportes() {
   if (user?.role === "admin") {
     const columns = buildColumns().filter((c) => c.key !== "responsable");
     return (
+      <>
+      <ImportCSVModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        type="reports"
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["reports", "all"] })}
+      />
       <div className="max-w-6xl mx-auto px-2 mb-8">
         <div>
           <h1 className="text-4xl font-bold">Resumen de Reportes</h1>
           <div className="flex items-center gap-4 justify-between">
             <small>Control y seguimiento de servicios activos</small>
             <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setIsImportOpen(true)}
+                text="Importar"
+                icon={Upload}
+                variant_classes="btn-outline btn-sm"
+              />
               <Button
                 onClick={handleExport}
                 text={exporting ? "Exportando..." : "Exportar Excel"}
@@ -438,9 +456,7 @@ export default function Reportes() {
             Listado de Incidencias
           </h2>
           {loading ? (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
+            <LoadingState message="Cargando reportes…" />
           ) : (
             <List
               data={rows}
@@ -453,6 +469,7 @@ export default function Reportes() {
           )}
         </section>
       </div>
+      </>
     );
   }
 
@@ -461,6 +478,13 @@ export default function Reportes() {
     const companyCols = buildColumns().filter((c) => c.key !== "empresa");
 
     return (
+      <>
+      <ImportCSVModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        type="reports"
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["reports", "all"] })}
+      />
       <div className="max-w-6xl mx-auto px-2 mb-8">
         <div>
           <h1 className="text-4xl font-bold">Resumen de Reportes</h1>
@@ -483,6 +507,12 @@ export default function Reportes() {
               ))}
             </div>
             <div className="flex items-center gap-2 ">
+              <Button
+                onClick={() => setIsImportOpen(true)}
+                text="Importar"
+                icon={Upload}
+                variant_classes="btn-outline btn-sm"
+              />
               <Button
                 onClick={handleExport}
                 text={exporting ? "Exportando..." : "Exportar Excel"}
@@ -536,9 +566,7 @@ export default function Reportes() {
             Listado de Incidencias
           </h2>
           {loading ? (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
+            <LoadingState message="Cargando reportes…" />
           ) : (
             <List
               data={rows}
@@ -551,6 +579,7 @@ export default function Reportes() {
           )}
         </section>
       </div>
+      </>
     );
   }
 
@@ -649,9 +678,7 @@ export default function Reportes() {
             Listado de Incidencias
           </h2>
           {loading ? (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
+            <LoadingState message="Cargando reportes…" />
           ) : (
             <List
               data={rows}
@@ -690,11 +717,7 @@ export default function Reportes() {
         <section className="mt-10">
           <h2 className="mb-4 text-2xl font-semibold">Últimas Incidencias</h2>
 
-          {loading && (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
-          )}
+          {loading && <LoadingState message="Cargando reportes…" />}
 
           {!loading && rows.length === 0 && (
             <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">

@@ -36,7 +36,10 @@ axiosInstance.interceptors.response.use(
     const message = errors.length > 0
       ? errors.map((e) => e.message).join(" • ")
       : (data?.message ?? error.message ?? "Error en la solicitud");
-    return Promise.reject(new Error(message));
+    const enhancedError = new Error(message) as Error & { responseData?: unknown; status?: number };
+    enhancedError.responseData = data;
+    enhancedError.status = error.response?.status;
+    return Promise.reject(enhancedError);
   }
 );
 
@@ -51,4 +54,10 @@ export const api = {
     axiosInstance.delete<T>(path).then((res) => res.data),
   postBlob: (path: string, body: unknown) =>
     axiosInstance.post(path, body, { responseType: 'blob' }),
+  postFormData: <T>(path: string, formData: FormData) =>
+    axiosInstance.post<T>(path, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((res) => res.data),
+  getBlob: (path: string) =>
+    axiosInstance.get(path, { responseType: 'blob' }),
 };

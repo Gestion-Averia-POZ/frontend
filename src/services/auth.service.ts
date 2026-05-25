@@ -1,5 +1,21 @@
 import { api } from "./api";
 
+export interface CSVImportResult {
+  success: boolean;
+  total: number;
+  created: number;
+  failed: number;
+  errors: Array<{ row: number; error: string }>;
+}
+
+interface ImportUsersResponse {
+  success: boolean;
+  message: string;
+  data: CSVImportResult & {
+    createdUsers: Array<{ id: string; name: string; email: string; role: string }>;
+  };
+}
+
 export type BackendRole = "ADMIN" | "COMPANY" | "WORKER" | "CITIZEN";
 
 interface BackendUser {
@@ -160,4 +176,44 @@ export const authService = {
     companyId?: string;
     phoneNumber?: string;
   }) => api.post<CreateEmployeeResponse>("/api/users/company", data),
+
+  importUsersCSV: async (file: File): Promise<CSVImportResult> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await api.postFormData<ImportUsersResponse>("/api/users/import", formData);
+      return { ...res.data, success: res.success };
+    } catch (err: any) {
+      if (err.responseData?.data) return { ...err.responseData.data, success: err.responseData.success ?? false } as CSVImportResult;
+      throw err;
+    }
+  },
+
+  downloadUsersCSVTemplate: async (): Promise<void> => {
+    const res = await api.getBlob("/api/users/import/template");
+    const blob = new Blob([res.data], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "plantilla-usuarios.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  downloadUsersExcelTemplate: async (): Promise<void> => {
+    const res = await api.getBlob("/api/users/import/template-excel");
+    const blob = new Blob([res.data], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "plantilla-usuarios.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

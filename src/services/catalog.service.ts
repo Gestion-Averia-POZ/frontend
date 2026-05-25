@@ -44,6 +44,16 @@ export interface FullCompany {
   categories?: { id: string; name: string }[];
 }
 
+// Ciudadanos (reportantes) que han generado reportes dirigidos a una empresa
+export interface CompanyCitizen {
+  id: string;
+  name: string;
+  lastname: string;
+  email: string;
+  phoneNumber: string | null;
+  createdAt: string;
+}
+
 interface CompaniesResponse {
   success: boolean;
   data: { companies: CatalogCompany[] };
@@ -80,6 +90,11 @@ interface SingleCompanyResponse {
   data: { company: FullCompany };
 }
 
+interface CompanyCitizensResponse {
+  success: boolean;
+  data: { citizens: CompanyCitizen[] };
+}
+
 export const catalogService = {
   // --- Catalog reads (used by all roles) ---
   getCompanies: () =>
@@ -102,6 +117,10 @@ export const catalogService = {
 
   getCompanyById: (id: string) =>
     api.get<SingleCompanyResponse>(`/api/companies/${id}`),
+
+  // Reportantes (CITIZEN) que generaron reportes dirigidos a esta empresa
+  getCompanyCitizens: (id: string) =>
+    api.get<CompanyCitizensResponse>(`/api/companies/${id}/citizens`),
 
   createCompany: (data: { name: string; description?: string; rif?: string; address?: string }) =>
     api.post<SingleCompanyResponse>("/api/companies", data),

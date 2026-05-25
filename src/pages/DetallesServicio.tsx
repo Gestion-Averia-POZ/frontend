@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { CirclePlus, ArrowLeft } from "lucide-react";
 import { ROUTES } from "../constants";
-import { Input, Modal } from "../components/ui";
+import { Input, Modal, Spinner } from "../components/ui";
 import { Map } from "../components/layout";
 import List from "../components/ui/LIst";
 import { type BackendReport } from "../services/reports.service";
@@ -221,8 +221,8 @@ export default function DetallesServicio() {
             </div>
           </div>
           {isLoading ? (
-            <div className="h-[220px] flex items-center justify-center text-sm text-gray-400">
-              Cargando datos...
+            <div className="h-[220px] flex items-center justify-center">
+              <Spinner size="lg" className="text-primary" />
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>

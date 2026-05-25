@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Map } from "../../../components/layout";
 import List from "../../../components/ui/LIst";
+import { LoadingState } from "../../../components/ui";
 import { useAuth } from "../../../context/AuthContext";
 import { ROUTES } from "../../../constants";
 import type { BackendReport } from "../../../services/reports.service";
@@ -164,11 +165,7 @@ export default function DashboardCitizen() {
       <section>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Mis Reportes</h2>
 
-        {loading && (
-          <p className="text-sm text-gray-400 py-8 text-center">
-            Cargando reportes...
-          </p>
-        )}
+        {loading && <LoadingState message="Cargando reportes…" />}
 
         {!loading && isError && (
           <p className="text-sm text-red-500 py-8 text-center">Error al cargar reportes</p>

@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ROUTES } from "../constants";
 import { CirclePlus, Search, PencilLine, ArrowUpRight } from "lucide-react";
-import { Button, Input, Modal } from "../components/ui";
+import { Button, Input, Modal, LoadingState } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { catalogService, type FullCategory } from "../services/catalog.service";
 import { useCategories, queryKeys } from "../hooks/useQueryHooks";
 
@@ -113,6 +114,7 @@ function ServiceCard({
 export default function Servicios() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
@@ -159,8 +161,16 @@ export default function Servicios() {
       setIsOpen(false);
       resetForm();
       queryClient.invalidateQueries({ queryKey: queryKeys.catalog.categories() });
+      toast.success(
+        isEditMode
+          ? isArchived
+            ? "Categoría archivada."
+            : "Categoría actualizada."
+          : "Categoría creada.",
+      );
     } catch {
       setSaveError("No se pudo guardar la categoría.");
+      toast.error("No se pudo guardar la categoría.");
     } finally {
       setIsSaving(false);
     }
@@ -170,8 +180,10 @@ export default function Servicios() {
     try {
       await catalogService.updateCategory(id, { isActive: true });
       queryClient.invalidateQueries({ queryKey: queryKeys.catalog.categories() });
+      toast.success("Categoría reactivada.");
     } catch {
       setSaveError("No se pudo reactivar la categoría.");
+      toast.error("No se pudo reactivar la categoría.");
     }
   }
 
@@ -252,11 +264,7 @@ export default function Servicios() {
 
       {/* ── Service Cards ────────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-4 flex flex-col gap-3">
-        {isLoading && (
-          <p className="text-sm text-gray-400 text-center py-8">
-            Cargando servicios...
-          </p>
-        )}
+        {isLoading && <LoadingState message="Cargando servicios…" />}
         {!isLoading && (isError || saveError) && (
           <p className="text-sm text-red-500 text-center py-8">
             {saveError ?? "No se pudieron cargar los servicios."}
@@ -310,13 +318,14 @@ export default function Servicios() {
         }
         confirmText={
           isSaving
-            ? "Guardando..."
+            ? "Guardando…"
             : isEditMode
               ? "Guardar Cambios"
               : "Guardar Categoría"
         }
         cancelText="Cancelar"
         onConfirm={handleConfirm}
+        confirmLoading={isSaving}
       >
         <div className="flex flex-col gap-5">
           {/* Nombre de categoría */}

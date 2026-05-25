@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Button, Input, Modal } from "../components/ui";
+import { Button, Input, Modal, ImportCSVModal, LoadingState } from "../components/ui";
 import List from "../components/ui/LIst";
+import { useToast } from "../context/ToastContext";
 import { ROUTES } from "../constants";
-import { CirclePlus } from "lucide-react";
+import { CirclePlus, Upload } from "lucide-react";
 import { catalogService, type FullCompany } from "../services/catalog.service";
 import { authService, type BackendUserProfile } from "../services/auth.service";
 
@@ -26,6 +27,7 @@ export default function Usuarios() {
 // ── Empresas view ─────────────────────────────────────────────────────────────
 
 function EmpresasView({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
+  const toast = useToast();
   const [companies, setCompanies] = useState<FullCompany[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +73,10 @@ function EmpresasView({ navigate }: { navigate: ReturnType<typeof useNavigate> }
       setIsModalOpen(false);
       resetForm();
       fetchCompanies();
+      toast.success("Empresa registrada correctamente.");
     } catch {
       setError("No se pudo crear la empresa.");
+      toast.error("No se pudo crear la empresa.");
     } finally {
       setIsSaving(false);
     }
@@ -121,9 +125,7 @@ function EmpresasView({ navigate }: { navigate: ReturnType<typeof useNavigate> }
         </div>
       </div>
 
-      {isLoading && (
-        <p className="text-sm text-gray-400 text-center py-8">Cargando empresas...</p>
-      )}
+      {isLoading && <LoadingState message="Cargando empresas…" />}
       {!isLoading && error && (
         <p className="text-sm text-red-500 text-center py-8">{error}</p>
       )}
@@ -209,9 +211,10 @@ function EmpresasView({ navigate }: { navigate: ReturnType<typeof useNavigate> }
         }}
         title="Nueva Empresa"
         description="Registra una nueva empresa prestadora de servicios."
-        confirmText={isSaving ? "Guardando..." : "Registrar Empresa"}
+        confirmText={isSaving ? "Guardando…" : "Registrar Empresa"}
         cancelText="Cancelar"
         onConfirm={handleCreateCompany}
+        confirmLoading={isSaving}
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
@@ -277,9 +280,11 @@ function EmpresasView({ navigate }: { navigate: ReturnType<typeof useNavigate> }
 // ── Reportantes view ──────────────────────────────────────────────────────────
 
 function ReportantesView({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
+  const toast = useToast();
   const [reportantes, setReportantes] = useState<BackendUserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   function fetchReportantes() {
     setIsLoading(true);
@@ -302,8 +307,11 @@ function ReportantesView({ navigate }: { navigate: ReturnType<typeof useNavigate
         await authService.activateUser(user.id);
       }
       fetchReportantes();
+      toast.success(
+        user.isActive ? "Reportante desactivado." : "Reportante activado.",
+      );
     } catch {
-      // Silently fail — UI stays as-is
+      toast.error("No se pudo actualizar el estado del reportante.");
     }
   }
 
@@ -326,7 +334,35 @@ function ReportantesView({ navigate }: { navigate: ReturnType<typeof useNavigate
             Gestiona los usuarios que registran incidencias en la plataforma.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            text="Importar"
+            icon={Upload}
+            variant_classes="btn-outline btn-sm"
+            onClick={() => setIsImportOpen(true)}
+          />
+          <Button
+            text="Reportante"
+            icon={CirclePlus}
+            variant_classes="btn-primary"
+            onClick={() =>
+              navigate(ROUTES.DETALLES_USUARIO, {
+                state: { tipo: "reportante", origen: ROUTES.REPORTANTES, mode: "create" },
+              })
+            }
+          />
+        </div>
       </div>
+
+      <ImportCSVModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        type="users"
+        onSuccess={() => {
+          setIsImportOpen(false);
+          fetchReportantes();
+        }}
+      />
 
       {/* Stat card */}
       <div className="mb-6">
@@ -341,9 +377,7 @@ function ReportantesView({ navigate }: { navigate: ReturnType<typeof useNavigate
         </div>
       </div>
 
-      {isLoading && (
-        <p className="text-sm text-gray-400 text-center py-8">Cargando reportantes...</p>
-      )}
+      {isLoading && <LoadingState message="Cargando reportantes…" />}
       {!isLoading && error && (
         <p className="text-sm text-red-500 text-center py-8">{error}</p>
       )}

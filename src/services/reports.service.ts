@@ -1,4 +1,13 @@
 import { api } from "./api";
+import type { CSVImportResult } from "./auth.service";
+
+interface ImportReportsResponse {
+  success: boolean;
+  message: string;
+  data: CSVImportResult & {
+    createdReports: Array<{ id: string; description: string }>;
+  };
+}
 
 export interface BackendReport {
   id: string;
@@ -8,7 +17,7 @@ export interface BackendReport {
   category: { id: string; name: string };
   failureType: { id: number; name: string; priority: string } | null;
   neighborhood: { id: number; name: string };
-  user: { id: string; name: string; lastname: string; email: string };
+  user: { id: string; name: string; lastname: string; email: string; phoneNumber?: string | null };
   company: { id: string; name: string } | null;
   state: { id: number; name: string; colorHex: string };
   assignedManager: {
@@ -81,8 +90,12 @@ export interface ExportFilters {
 }
 
 export const reportsService = {
-  getByUser: (userId: string) =>
-    api.get<UserReportsResponse>(`/api/reports/user/${userId}`),
+  getByUser: (userId: string, params?: { companyName?: string }) => {
+    const company = params?.companyName
+      ? `?companyName=${encodeURIComponent(params.companyName)}`
+      : "";
+    return api.get<UserReportsResponse>(`/api/reports/user/${userId}${company}`);
+  },
 
   getById: (reportId: string) =>
     api.get<SingleReportResponse>(`/api/reports/${reportId}`),
@@ -125,6 +138,46 @@ export const reportsService = {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'reportes-averias.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  importReportsCSV: async (file: File): Promise<CSVImportResult> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await api.postFormData<ImportReportsResponse>("/api/reports/import", formData);
+      return { ...res.data, success: res.success };
+    } catch (err: any) {
+      if (err.responseData?.data) return { ...err.responseData.data, success: err.responseData.success ?? false } as CSVImportResult;
+      throw err;
+    }
+  },
+
+  downloadReportsCSVTemplate: async (): Promise<void> => {
+    const res = await api.getBlob("/api/reports/import/template");
+    const blob = new Blob([res.data], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "plantilla-reportes.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  downloadReportsExcelTemplate: async (): Promise<void> => {
+    const res = await api.getBlob("/api/reports/import/template-excel");
+    const blob = new Blob([res.data], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "plantilla-reportes.xlsx";
     document.body.appendChild(a);
     a.click();
     a.remove();

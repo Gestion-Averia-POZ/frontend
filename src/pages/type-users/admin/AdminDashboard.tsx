@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Map } from "../../../components/layout";
 import List from "../../../components/ui/LIst";
+import { LoadingState } from "../../../components/ui";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../../constants";
 import type { BackendReport } from "../../../services/reports.service";
@@ -173,6 +174,9 @@ export default function AdminDashboard() {
 
       <section id="Ultimas-incidencias" className="mt-15">
         <h2 className="mb-2 text-2xl font-semibold">Últimas Incidencias</h2>
+        {isLoading ? (
+          <LoadingState message="Cargando reportes…" />
+        ) : (
         <List
           renderRowId={(id) => (
             <span className="font-mono text-xs" style={{ color: "#64748B" }}>
@@ -290,6 +294,7 @@ export default function AdminDashboard() {
             },
           ]}
         />
+        )}
       </section>
     </div>
   );

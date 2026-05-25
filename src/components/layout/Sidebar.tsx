@@ -396,6 +396,21 @@ export default function Sidebar() {
           />
         )}
 
+        {/* Reportantes — ciudadanos que reportaron a la empresa (solo company) */}
+        {isCompany && (
+          <NavItem
+            icon={<UserPlus size={18} />}
+            label="Reportantes"
+            collapsed={collapsed}
+            isActive={
+              pathname === ROUTES.REPORTANTES_EMPRESA ||
+              (pathname === ROUTES.DETALLES_USUARIO &&
+                navState?.origen === ROUTES.REPORTANTES_EMPRESA)
+            }
+            onClick={() => navigate(ROUTES.REPORTANTES_EMPRESA)}
+          />
+        )}
+
         {/* Usuarios con submenu — solo admin */}
         {isAdmin && (
           <>

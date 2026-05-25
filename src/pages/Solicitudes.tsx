@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Eye } from "lucide-react";
 import List, { type FilterConfig } from "../components/ui/LIst";
 import Modal from "../components/ui/Modal";
+import { LoadingState } from "../components/ui";
 import { requestsService, type SolicitudRequest } from "../services/requests.service";
 
 // ── Tipo local para el List
@@ -115,9 +116,7 @@ export default function Solicitudes() {
 
       {/* Tabla */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <span className="loading loading-spinner loading-lg text-primary" />
-        </div>
+        <LoadingState message="Cargando solicitudes…" />
       ) : (
         <List
           columns={[
