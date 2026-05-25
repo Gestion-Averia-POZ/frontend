@@ -13,6 +13,7 @@ export const ROUTES = {
   EMPLEADOS: "/empleados",
   EMPRESAS: "/usuarios/empresas",
   REPORTANTES: "/usuarios/reportantes",
+  REPORTANTES_EMPRESA: "/reportantes",
   DETALLES_USUARIO: "/usuarios/detalles-usuario",
   METRICAS: "/metricas",
   DETALLES_METRICA: "/metricas/detalles",

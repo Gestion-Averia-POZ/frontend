@@ -429,14 +429,26 @@ export default function DetallesUsuario() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch reportante's real reports when admin views a reportante
+  // Fetch reportante's reports when admin/company views a reportante.
+  // Una empresa SOLO puede ver los reportes que ese ciudadano dirigió a ella:
+  // filtramos por companyName en el servidor y reforzamos con companyId exacto en cliente.
   useEffect(() => {
     if (tipo !== "reportante" || isSelfView || isCreateMode) return;
     const reportanteId = state?.data?.id as string | undefined;
     if (!reportanteId) return;
+    const isCompanyViewer = user?.role === "company";
     reportsService
-      .getByUser(reportanteId)
-      .then((res) => setReportanteReports(res.data.reports))
+      .getByUser(
+        reportanteId,
+        isCompanyViewer && user?.name ? { companyName: user.name } : undefined,
+      )
+      .then((res) => {
+        const reports =
+          isCompanyViewer && user?.companyId
+            ? res.data.reports.filter((r) => r.company?.id === user.companyId)
+            : res.data.reports;
+        setReportanteReports(reports);
+      })
       .catch(console.error)
       .finally(() => setReportanteReportsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps

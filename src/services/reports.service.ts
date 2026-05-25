@@ -90,8 +90,12 @@ export interface ExportFilters {
 }
 
 export const reportsService = {
-  getByUser: (userId: string) =>
-    api.get<UserReportsResponse>(`/api/reports/user/${userId}`),
+  getByUser: (userId: string, params?: { companyName?: string }) => {
+    const company = params?.companyName
+      ? `?companyName=${encodeURIComponent(params.companyName)}`
+      : "";
+    return api.get<UserReportsResponse>(`/api/reports/user/${userId}${company}`);
+  },
 
   getById: (reportId: string) =>
     api.get<SingleReportResponse>(`/api/reports/${reportId}`),
@@ -159,6 +163,21 @@ export const reportsService = {
     const a = document.createElement("a");
     a.href = url;
     a.download = "plantilla-reportes.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  downloadReportsExcelTemplate: async (): Promise<void> => {
+    const res = await api.getBlob("/api/reports/import/template-excel");
+    const blob = new Blob([res.data], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "plantilla-reportes.xlsx";
     document.body.appendChild(a);
     a.click();
     a.remove();

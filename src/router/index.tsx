@@ -19,10 +19,10 @@ const Privacy = lazy(() => import("../pages/Privacy"));
 const NotFound = lazy(() => import("../pages/NotFound"));
 
 // Rutas de autenticación
-const Login = lazy(() => import("../pages/Auth/Login"));
-const Register = lazy(() => import("../pages/Auth/Register"));
-const RecoverPassword = lazy(() => import("../pages/Auth/RecoverPassword"));
-const CompanySuccess = lazy(() => import("../pages/Auth/CompanySuccess"));
+const Login = lazy(() => import("../pages/auth/Login"));
+const Register = lazy(() => import("../pages/auth/Register"));
+const RecoverPassword = lazy(() => import("../pages/auth/RecoverPassword"));
+const CompanySuccess = lazy(() => import("../pages/auth/CompanySuccess"));
 
 // Dashboards por rol
 const AdminDashboard = lazy(
@@ -37,6 +37,7 @@ const DetallesReporte = lazy(() => import("../pages/DetallesReporte"));
 const Servicios = lazy(() => import("../pages/Servicios"));
 const DetallesServicio = lazy(() => import("../pages/DetallesServicio"));
 const Usuarios = lazy(() => import("../pages/Usuarios"));
+const ReportantesEmpresa = lazy(() => import("../pages/ReportantesEmpresa"));
 const DetallesUsuario = lazy(() => import("../pages/DetallesUsuario"));
 const DetallesMetrica = lazy(() => import("../pages/DetallesMetrica"));
 const TiposAverias = lazy(() => import("../pages/TiposAverias"));
@@ -125,6 +126,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.DETALLES_SERVICIO, element: <DetallesServicio /> },
       { path: ROUTES.EMPRESAS, element: <Usuarios /> },
       { path: ROUTES.REPORTANTES, element: <Usuarios /> },
+      { path: ROUTES.REPORTANTES_EMPRESA, element: <ReportantesEmpresa /> },
       { path: ROUTES.DETALLES_USUARIO, element: <DetallesUsuarioKeyed /> },
       { path: ROUTES.METRICAS, element: <DetallesMetrica /> },
       { path: ROUTES.DETALLES_METRICA, element: <DetallesMetrica /> },

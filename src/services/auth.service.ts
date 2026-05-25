@@ -201,4 +201,19 @@ export const authService = {
     a.remove();
     URL.revokeObjectURL(url);
   },
+
+  downloadUsersExcelTemplate: async (): Promise<void> => {
+    const res = await api.getBlob("/api/users/import/template-excel");
+    const blob = new Blob([res.data], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "plantilla-usuarios.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };
