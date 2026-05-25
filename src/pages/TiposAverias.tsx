@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { CirclePlus, PencilLine } from "lucide-react";
-import { Input, Modal } from "../components/ui";
+import { Input, Modal, LoadingState } from "../components/ui";
 import List from "../components/ui/LIst";
+import { useToast } from "../context/ToastContext";
 import { ROUTES } from "../constants";
 import { catalogService, type FullFailureType } from "../services/catalog.service";
 import { useAllFailureTypes, useCategories, queryKeys } from "../hooks/useQueryHooks";
@@ -26,6 +27,7 @@ const PRIORITY_OPTIONS = ["BAJA", "MEDIA", "ALTA", "CRITICA"] as const;
 
 export default function TiposAverias() {
   const navigate = useNavigate();
+  const toast = useToast();
 
   const queryClient = useQueryClient();
 
@@ -90,8 +92,16 @@ export default function TiposAverias() {
       setIsModalOpen(false);
       resetForm();
       queryClient.invalidateQueries({ queryKey: queryKeys.catalog.allFailureTypes() });
+      toast.success(
+        isEditMode
+          ? isArchived
+            ? "Tipo de avería archivado."
+            : "Tipo de avería actualizado."
+          : "Tipo de avería creado.",
+      );
     } catch {
       setSaveError("No se pudo guardar el tipo de avería.");
+      toast.error("No se pudo guardar el tipo de avería.");
     } finally {
       setIsSaving(false);
     }
@@ -141,9 +151,7 @@ export default function TiposAverias() {
       </div>
 
       {/* ── Loading / Error ── */}
-      {isLoading && (
-        <p className="text-sm text-gray-400 text-center py-8">Cargando tipos de avería...</p>
-      )}
+      {isLoading && <LoadingState message="Cargando tipos de avería…" />}
       {!isLoading && (isErrorFt || saveError) && (
         <p className="text-sm text-red-500 text-center py-8">
           {saveError ?? "No se pudieron cargar los tipos de avería."}
@@ -232,9 +240,10 @@ export default function TiposAverias() {
           resetForm();
         }}
         title={isEditMode ? "Editar Tipo de Incidencia" : "Nuevo Tipo de Incidencia"}
-        confirmText={isSaving ? "Guardando..." : isEditMode ? "Guardar Cambios" : "Registrar"}
+        confirmText={isSaving ? "Guardando…" : isEditMode ? "Guardar Cambios" : "Registrar"}
         cancelText="Cancelar"
         onConfirm={handleConfirm}
+        confirmLoading={isSaving}
       >
         <div className="flex flex-col gap-5">
           {/* Nombre */}

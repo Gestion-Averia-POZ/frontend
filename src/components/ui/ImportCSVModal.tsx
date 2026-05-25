@@ -364,10 +364,11 @@ export default function ImportCSVModal({
           />
           {!isSuccess && (
             <Button
-              text={importing ? "Importando..." : "Importar"}
+              text={importing ? "Importando…" : "Importar"}
               icon={Upload}
               onClick={handleImport}
               variant_classes="btn-primary"
+              loading={importing}
               disabled={!file || importing}
             />
           )}

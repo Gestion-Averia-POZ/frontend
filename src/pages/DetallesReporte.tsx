@@ -10,10 +10,12 @@ import {
   CalendarDays,
   Settings,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Map } from "../components/layout";
 import { Button } from "../components/ui";
 import CustomSelect from "../components/ui/CustomSelect";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { useCategories, useFailureTypesByCategory, useCompaniesByCategory, useWorkers } from "../hooks/useQueryHooks";
 import { reportsService } from "../services/reports.service";
 
@@ -121,6 +123,9 @@ export default function DetallesReporte() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [isSaving, setIsSaving] = useState(false);
   const state = location.state as LocationState;
 
   const reporte = state?.reporte ?? null;
@@ -277,6 +282,7 @@ export default function DetallesReporte() {
 
   async function handleGuardarCambios() {
     if (!reporte?.id) return;
+    setIsSaving(true);
     try {
       const promises: Promise<unknown>[] = [];
 
@@ -323,11 +329,31 @@ export default function DetallesReporte() {
             ...(failureTypesMap[tipoAveria] && { failureTypeId: failureTypesMap[tipoAveria] }),
           }));
         }
+      } else if (isCitizen || isCompanyOwnReport) {
+        // El creador (ciudadano, o empresa viendo "Mis Reportes") solo puede
+        // editar la descripción de su propio reporte.
+        const descActual = (reporte?.descripcion ?? "").trim();
+        if (descripcion.trim() && descripcion.trim() !== descActual) {
+          promises.push(
+            reportsService.update(reporte.id, { description: descripcion.trim() }),
+          );
+        }
+      }
+
+      // Evita un "éxito" falso cuando no hay nada que enviar al backend.
+      if (promises.length === 0) {
+        toast.info("No hay cambios para guardar.");
+        return;
       }
 
       await Promise.all(promises);
+      await queryClient.invalidateQueries({ queryKey: ["reports"] });
+      toast.success("Cambios guardados correctamente.");
     } catch (err) {
       console.error("Error al guardar cambios:", err);
+      toast.error("No se pudieron guardar los cambios. Inténtalo de nuevo.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -338,6 +364,7 @@ export default function DetallesReporte() {
       setShowErrors(true);
       return;
     }
+    setIsSaving(true);
     try {
       await reportsService.create({
         description: descripcion,
@@ -348,9 +375,14 @@ export default function DetallesReporte() {
         ...(failureTypesMap[tipoAveria] && { failureTypeId: failureTypesMap[tipoAveria] }),
         ...(calle && { address: calle }),
       });
+      await queryClient.invalidateQueries({ queryKey: ["reports"] });
+      toast.success("Reporte registrado correctamente.");
       navigate(ROUTES.REPORTES);
     } catch (err) {
       console.error("Error al crear reporte:", err);
+      toast.error("No se pudo registrar el reporte. Inténtalo de nuevo.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -409,8 +441,11 @@ export default function DetallesReporte() {
                               setEstadoRegistro("cancelado");
                               setEstado("Cancelado");
                             }
+                            await queryClient.invalidateQueries({ queryKey: ["reports"] });
+                            toast.success("Reporte cancelado.");
                           } catch (err) {
                             console.error("Error al cancelar reporte:", err);
+                            toast.error("No se pudo cancelar el reporte.");
                           } finally {
                             setDropdownOpen(false);
                           }
@@ -747,6 +782,7 @@ export default function DetallesReporte() {
               text={isViewMode ? "Guardar Cambios" : "Registrar"}
               variant_classes="btn-primary w-full h-12 text-base"
               onClick={isViewMode ? handleGuardarCambios : handleRegistrar}
+              loading={isSaving}
             />
             <Button
               text="Cancelar"

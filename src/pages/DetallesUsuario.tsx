@@ -12,12 +12,13 @@ import {
   Lock,
   Settings,
 } from "lucide-react";
-import { Button } from "../components/ui";
+import { Button, LoadingState } from "../components/ui";
 import List from "../components/ui/LIst";
 import SearchableSelect from "../components/ui/SearchableSelect";
 import { ROUTES } from "../constants";
 import Modal from "../components/ui/Modal";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { authService, type BackendUserProfile } from "../services/auth.service";
 import {
   reportsService,
@@ -208,6 +209,7 @@ const TODAS_CATEGORIAS = Object.keys(CATEGORIA_COLORS);
 export default function DetallesUsuario() {
   const location = useLocation();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const state = location.state as NavState | null;
   const tipo: TipoUsuario = state?.tipo ?? "reportante";
@@ -478,9 +480,11 @@ export default function DetallesUsuario() {
         companyId,
         ...(telefono.trim() ? { phoneNumber: telefono.trim() } : {}),
       });
+      toast.success("Empleado registrado correctamente.");
       navigate(ROUTES.EMPLEADOS);
     } catch (err) {
       console.error(err);
+      toast.error("No se pudo registrar el empleado.");
     } finally {
       setSaving(false);
     }
@@ -497,9 +501,11 @@ export default function DetallesUsuario() {
         password: password.trim(),
         ...(telefono.trim() ? { phoneNumber: telefono.trim() } : {}),
       });
+      toast.success("Reportante registrado correctamente.");
       navigate(ROUTES.REPORTANTES);
     } catch (err) {
       console.error(err);
+      toast.error("No se pudo registrar el reportante.");
     } finally {
       setSaving(false);
     }
@@ -527,8 +533,10 @@ export default function DetallesUsuario() {
           }),
         );
       }
+      toast.success("Cambios guardados correctamente.");
     } catch (err) {
       console.error(err);
+      toast.error("No se pudieron guardar los cambios.");
     } finally {
       setSaving(false);
     }
@@ -1356,7 +1364,7 @@ export default function DetallesUsuario() {
               />
             </div>
             {companyDataLoading ? (
-              <p className="text-sm text-gray-400 py-8 text-center">Cargando...</p>
+              <LoadingState message="Cargando…" />
             ) : companyWorkers.length === 0 ? (
               <p className="text-sm text-gray-400 py-8 text-center">Sin empleados registrados.</p>
             ) : (
@@ -1428,7 +1436,7 @@ export default function DetallesUsuario() {
               Historial de Reportes
             </h2>
             {companyDataLoading ? (
-              <p className="text-sm text-gray-400 py-8 text-center">Cargando...</p>
+              <LoadingState message="Cargando…" />
             ) : companyOwnReports.length === 0 ? (
               <p className="text-sm text-gray-400 py-8 text-center">Sin reportes registrados.</p>
             ) : (
@@ -1642,8 +1650,9 @@ export default function DetallesUsuario() {
           </h1>
           {isCreateMode && (
             <Button
-              text={saving ? "Registrando..." : "Registrar"}
+              text={saving ? "Registrando…" : "Registrar"}
               variant_classes="btn-primary"
+              loading={saving}
               onClick={!saving ? handleCreateEmployee : undefined}
             />
           )}
@@ -1727,8 +1736,14 @@ export default function DetallesUsuario() {
                             setEstadoRegistro("archivado");
                             setDropdownOpen(false);
                             authService.deactivateWorker(empleado.fullId)
-                              .then(() => setWorkerIsActive(false))
-                              .catch(console.error);
+                              .then(() => {
+                                setWorkerIsActive(false);
+                                toast.success("Empleado archivado.");
+                              })
+                              .catch((err) => {
+                                console.error(err);
+                                toast.error("No se pudo archivar el empleado.");
+                              });
                           }}
                         >
                           Archivar
@@ -1740,8 +1755,14 @@ export default function DetallesUsuario() {
                             setEstadoRegistro(null);
                             setDropdownOpen(false);
                             authService.activateWorker(empleado.fullId)
-                              .then(() => setWorkerIsActive(true))
-                              .catch(console.error);
+                              .then(() => {
+                                setWorkerIsActive(true);
+                                toast.success("Empleado restablecido.");
+                              })
+                              .catch((err) => {
+                                console.error(err);
+                                toast.error("No se pudo restablecer el empleado.");
+                              });
                           }}
                         >
                           Restablecer
@@ -1854,9 +1875,7 @@ export default function DetallesUsuario() {
               Reportes Asignados
             </h2>
             {assignedReportsLoading ? (
-              <p className="text-sm text-gray-400 py-8 text-center">
-                Cargando reportes...
-              </p>
+              <LoadingState message="Cargando reportes…" />
             ) : assignedReports.length === 0 ? (
               <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">
                 <p className="text-gray-500 font-medium">Sin reportes asignados</p>
@@ -2058,10 +2077,11 @@ export default function DetallesUsuario() {
         <Button
           text={
             saving
-              ? isCreateMode ? "Registrando..." : "Guardando..."
+              ? isCreateMode ? "Registrando…" : "Guardando…"
               : isCreateMode ? "Registrar" : "Guardar Cambio"
           }
           variant_classes="btn-primary"
+          loading={saving}
           disabled={saving}
           onClick={
             isCreateMode
@@ -2289,9 +2309,7 @@ export default function DetallesUsuario() {
           </h2>
 
           {isSelfView && reportesLoading && (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
+            <LoadingState message="Cargando reportes…" />
           )}
 
           {isSelfView && !reportesLoading && reportes.length === 0 && (
@@ -2306,9 +2324,7 @@ export default function DetallesUsuario() {
           )}
 
           {!isSelfView && reportanteReportsLoading && (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
+            <LoadingState message="Cargando reportes…" />
           )}
           {!isSelfView && !reportanteReportsLoading && reportanteReports.length === 0 && (
             <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">

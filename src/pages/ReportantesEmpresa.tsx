@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import List from "../components/ui/LIst";
+import { LoadingState } from "../components/ui";
 import { ROUTES } from "../constants";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -74,11 +75,7 @@ export default function ReportantesEmpresa() {
         </div>
       </div>
 
-      {isLoading && (
-        <p className="text-sm text-gray-400 text-center py-8">
-          Cargando reportantes...
-        </p>
-      )}
+      {isLoading && <LoadingState message="Cargando reportantes…" />}
       {!isLoading && error && (
         <p className="text-sm text-red-500 text-center py-8">{error}</p>
       )}

@@ -11,6 +11,7 @@ interface ModalProps {
   confirmText?: string;
   cancelText?: string;
   confirmVariant?: string;
+  confirmLoading?: boolean;
   children?: React.ReactNode;
 }
 
@@ -23,6 +24,7 @@ export default function Modal({
   confirmText = "Confirmar",
   cancelText = "Cancelar",
   confirmVariant = "btn-primary",
+  confirmLoading = false,
   children,
 }: ModalProps) {
   const [mounted, setMounted] = useState(false);
@@ -90,6 +92,7 @@ export default function Modal({
               text={confirmText}
               onClick={onConfirm}
               variant_classes={confirmVariant}
+              loading={confirmLoading}
             />
           )}
         </div>

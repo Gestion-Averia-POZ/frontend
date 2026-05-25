@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ClipboardCheck, AlertTriangle, Files, TrendingUp } from "lucide-react";
 import List, { type FilterConfig } from "../../../components/ui/LIst";
+import { LoadingState, Spinner } from "../../../components/ui";
 import { useAuth } from "../../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Map } from "../../../components/layout";
@@ -230,7 +231,9 @@ export default function DashboardCompany() {
             Tipos de Incidencia
           </h3>
           {loading ? (
-            <p className="text-xs text-gray-400 text-center py-4">Cargando...</p>
+            <div className="flex justify-center py-4">
+              <Spinner className="text-primary" />
+            </div>
           ) : incidenceTypes.length === 0 ? (
             <p className="text-xs text-gray-400 text-center py-4">Sin datos</p>
           ) : (
@@ -255,7 +258,7 @@ export default function DashboardCompany() {
           <h2 className="text-xl font-bold text-gray-900">Reportes Recientes</h2>
         </div>
         {loading ? (
-          <p className="text-sm text-gray-400 py-8 text-center">Cargando reportes...</p>
+          <LoadingState message="Cargando reportes…" />
         ) : (
           <List
             data={recentRows}

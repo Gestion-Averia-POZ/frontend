@@ -14,7 +14,7 @@ import {
   Download,
   Upload,
 } from "lucide-react";
-import { Button, Card, ImportCSVModal } from "../components/ui";
+import { Button, Card, ImportCSVModal, LoadingState } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ROUTES } from "../constants";
@@ -456,9 +456,7 @@ export default function Reportes() {
             Listado de Incidencias
           </h2>
           {loading ? (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
+            <LoadingState message="Cargando reportes…" />
           ) : (
             <List
               data={rows}
@@ -568,9 +566,7 @@ export default function Reportes() {
             Listado de Incidencias
           </h2>
           {loading ? (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
+            <LoadingState message="Cargando reportes…" />
           ) : (
             <List
               data={rows}
@@ -682,9 +678,7 @@ export default function Reportes() {
             Listado de Incidencias
           </h2>
           {loading ? (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
+            <LoadingState message="Cargando reportes…" />
           ) : (
             <List
               data={rows}
@@ -723,11 +717,7 @@ export default function Reportes() {
         <section className="mt-10">
           <h2 className="mb-4 text-2xl font-semibold">Últimas Incidencias</h2>
 
-          {loading && (
-            <p className="text-sm text-gray-400 py-8 text-center">
-              Cargando reportes...
-            </p>
-          )}
+          {loading && <LoadingState message="Cargando reportes…" />}
 
           {!loading && rows.length === 0 && (
             <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">

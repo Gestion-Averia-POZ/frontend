@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CirclePlus, Upload } from "lucide-react";
 import List from "../components/ui/LIst";
 import { ROUTES } from "../constants";
-import { Button, ImportCSVModal } from "../components/ui";
+import { Button, ImportCSVModal, LoadingState } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { authService, type BackendUserProfile } from "../services/auth.service";
 
@@ -110,7 +110,7 @@ export default function Empleados() {
 
       {/* List */}
       {loading ? (
-        <p className="text-sm text-gray-400 py-8 text-center">Cargando empleados...</p>
+        <LoadingState message="Cargando empleados…" />
       ) : (
         <List
           data={rows}

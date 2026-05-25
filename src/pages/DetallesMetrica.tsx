@@ -14,6 +14,7 @@ import {
   Legend,
 } from "recharts";
 import { useAuth } from "../context/AuthContext";
+import { LoadingState } from "../components/ui";
 import { metricsService, type MetricsData } from "../services/metrics.service";
 import { useCategories, useNeighborhoods } from "../hooks/useQueryHooks";
 import { catalogService } from "../services/catalog.service";
@@ -258,11 +259,7 @@ export default function DetallesMetrica() {
       </div>
 
       {/* Loading */}
-      {loading && (
-        <div className="flex justify-center py-20">
-          <span className="loading loading-spinner loading-lg text-primary" />
-        </div>
-      )}
+      {loading && <LoadingState message="Cargando métricas…" />}
 
       {/* Error */}
       {!loading && error && (
