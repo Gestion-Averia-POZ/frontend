@@ -100,8 +100,12 @@ export const reportsService = {
   getById: (reportId: string) =>
     api.get<SingleReportResponse>(`/api/reports/${reportId}`),
 
-  create: (body: CreateReportBody) =>
-    api.post<SingleReportResponse>(`/api/reports`, body),
+  create: (body: CreateReportBody | FormData) => {
+    if (body instanceof FormData) {
+      return api.postFormData<SingleReportResponse>(`/api/reports`, body);
+    }
+    return api.post<SingleReportResponse>(`/api/reports`, body);
+  },
 
   getAddress: (latitude: number, longitude: number) =>
     api.post<GetAddressResponse>(`/api/reports/get-address`, { latitude, longitude }),

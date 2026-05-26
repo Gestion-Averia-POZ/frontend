@@ -91,6 +91,7 @@ type ReporteState = {
   latitude?: number;
   longitude?: number;
   createdAt?: string;
+  urlPhoto?: string | null;
 };
 
 type LocationState = {
@@ -127,9 +128,12 @@ export default function DetallesReporte() {
   const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const state = location.state as LocationState;
-
   const reporte = state?.reporte ?? null;
   const isViewMode = !!reporte;
+
+  // Foto guardada en el servidor (cargada al abrir el detalle)
+  const [serverPhoto, setServerPhoto] = useState<string | null>(reporte?.urlPhoto ?? null);
+
   const isWorker = user?.role === "worker";
   const isAdmin = user?.role === "admin";
   const isCitizen = user?.role === "citizen";
@@ -161,6 +165,17 @@ export default function DetallesReporte() {
     reporte?.estado?.toUpperCase() === "CANCELADO" ? "cancelado" : null
   );
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Cargar urlPhoto desde el backend al abrir el detalle de un reporte existente
+  useEffect(() => {
+    if (!reporte?.id || !isViewMode) return;
+    reportsService.getById(reporte.id)
+      .then((res) => {
+        const photo = (res.data.report as any).urlPhoto;
+        if (photo) setServerPhoto(photo);
+      })
+      .catch(() => { /* silencioso — la foto es opcional */ });
+  }, [reporte?.id, isViewMode]);
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -366,15 +381,34 @@ export default function DetallesReporte() {
     }
     setIsSaving(true);
     try {
-      await reportsService.create({
-        description: descripcion,
-        latitude: selectedCoords[1],
-        longitude: selectedCoords[0],
-        categoryId: categoriesMap[categoria],
-        ...(companiesMap[empresa] && { companyId: companiesMap[empresa] }),
-        ...(failureTypesMap[tipoAveria] && { failureTypeId: failureTypesMap[tipoAveria] }),
-        ...(calle && { address: calle }),
-      });
+      let body: Parameters<typeof reportsService.create>[0];
+
+      if (imagenes.length > 0) {
+        // Si hay imagen, enviamos multipart/form-data
+        const fd = new FormData();
+        fd.append("description", descripcion);
+        fd.append("latitude", String(selectedCoords[1]));
+        fd.append("longitude", String(selectedCoords[0]));
+        fd.append("categoryId", categoriesMap[categoria]);
+        if (companiesMap[empresa]) fd.append("companyId", companiesMap[empresa]);
+        if (failureTypesMap[tipoAveria]) fd.append("failureTypeId", String(failureTypesMap[tipoAveria]));
+        if (calle) fd.append("address", calle);
+        fd.append("photo", imagenes[0]); // solo la primera imagen
+        body = fd;
+      } else {
+        // Sin imagen: JSON normal
+        body = {
+          description: descripcion,
+          latitude: selectedCoords[1],
+          longitude: selectedCoords[0],
+          categoryId: categoriesMap[categoria],
+          ...(companiesMap[empresa] && { companyId: companiesMap[empresa] }),
+          ...(failureTypesMap[tipoAveria] && { failureTypeId: failureTypesMap[tipoAveria] }),
+          ...(calle && { address: calle }),
+        };
+      }
+
+      await reportsService.create(body);
       await queryClient.invalidateQueries({ queryKey: ["reports"] });
       toast.success("Reporte registrado correctamente.");
       navigate(ROUTES.REPORTES);
@@ -752,6 +786,19 @@ export default function DetallesReporte() {
                 </button>
               )}
 
+              {/* Foto guardada en el servidor */}
+              {serverPhoto && (
+                <a href={serverPhoto} target="_blank" rel="noopener noreferrer" className="col-span-1">
+                  <img
+                    src={serverPhoto}
+                    alt="Evidencia del reporte"
+                    className="h-28 w-full rounded-xl object-cover ring-2 ring-blue-200 hover:ring-blue-400 transition-all"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </a>
+              )}
+
+              {/* Imágenes nuevas seleccionadas localmente (aún no subidas) */}
               {imagenes.map((file, i) => (
                 <img
                   key={i}
@@ -770,6 +817,12 @@ export default function DetallesReporte() {
               hidden
               onChange={handleFiles}
             />
+
+            {!serverPhoto && imagenes.length === 0 && isViewMode && (
+              <p className="text-xs text-gray-400 text-center py-2">
+                Este reporte no tiene evidencia fotográfica registrada.
+              </p>
+            )}
 
             <p className="text-xs text-gray-400">
               Formatos permitidos: JPG, PNG, PDF. Máx 5MB por archivo.
