@@ -163,7 +163,13 @@ export default function Register() {
       otpRefs[index - 1].current?.focus();
   }
 
-  async function handleSendOTP(e: { preventDefault(): void }) {
+  // NOTA: La verificación por OTP se omite temporalmente porque el envío de
+  // correos OTP a Gmail requiere un plan pagado en Vercel. El paso "otp" y sus
+  // handlers (handleVerifyOTP, handleResendOTP, etc.) se conservan inactivos.
+  // Para reactivarlo: aquí, volver a llamar a authService.sendRegisterOTP(email)
+  // y hacer setStep("otp") en lugar de setStep("register"); y apuntar el botón
+  // "atrás" del formulario de registro de nuevo a "otp".
+  async function handleContinueWithEmail(e: { preventDefault(): void }) {
     e.preventDefault();
     if (!email.trim()) return;
     setError("");
@@ -174,11 +180,10 @@ export default function Register() {
         setError("Este correo ya está registrado.");
         return;
       }
-      await authService.sendRegisterOTP(email);
-      setStep("otp");
+      setStep("register");
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Error al enviar el código.",
+        err instanceof Error ? err.message : "No se pudo validar el correo.",
       );
     } finally {
       setLoading(false);
@@ -579,14 +584,14 @@ export default function Register() {
         <BackHeader onBack={() => setStep("choose")} />
         <h1 className="text-3xl font-bold text-[#0F172A] mb-2">Crear cuenta</h1>
         <p className="text-[#475569] text-xs mb-6">
-          Ingresa tu correo para verificar tu identidad antes de registrarte.
+          Ingresa tu correo para comenzar tu registro.
         </p>
         <Form
           noBorder
-          textButton={loading ? "Enviando..." : "Enviar código"}
+          textButton={loading ? "Validando..." : "Continuar"}
           submitClasses="w-full h-[48px] text-base"
           submitIcon={Send}
-          onSubmit={handleSendOTP}
+          onSubmit={handleContinueWithEmail}
           error={error}
           fields={[
             {
@@ -672,7 +677,7 @@ export default function Register() {
   // ── Step 3: Formulario de registro ────────────────────────────
   return (
     <Card>
-      <BackHeader onBack={() => setStep("otp")} />
+      <BackHeader onBack={() => setStep("email")} />
       <h1 className="text-3xl font-bold text-[#0F172A] mb-2">Crear cuenta</h1>
       <p className="text-[#475569] text-xs mb-6">
         Únete a Urbis y comienza a reportar
